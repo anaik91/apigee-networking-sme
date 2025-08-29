@@ -1,5 +1,5 @@
 /**
- * Copyright 2025 Google LLC
+ * Copyright 2024 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,39 +14,34 @@
  * limitations under the License.
  */
 
-module "project" {
-  source          = "github.com/terraform-google-modules/cloud-foundation-fabric//modules/project?ref=v28.0.0"
-  name            = var.project_id
-  parent          = var.project_parent
-  billing_account = var.billing_account
-  project_create  = var.project_create
+locals {
   services = [
     "apigee.googleapis.com",
     "cloudkms.googleapis.com",
-    "compute.googleapis.com",
-    "servicenetworking.googleapis.com"
+    "compute.googleapis.com"
   ]
 }
 
-module "vpc" {
-  source     = "github.com/terraform-google-modules/cloud-foundation-fabric//modules/net-vpc?ref=v28.0.0"
-  project_id = module.project.project_id
-  name       = var.network
-  subnets    = []
-  psa_config = {
-    ranges = {
-      apigee-range         = var.peering_range
-      apigee-support-range = var.support_range
-    }
-  }
+data "google_project" "project" {
+  project_id = var.project_id
+}
+
+resource "google_project_service" "project" {
+  for_each = toset(local.services)
+  project  = data.google_project.project.id
+  service  = each.key
 }
 
 module "apigee-x-core" {
   source              = "../modules/apigee-x-core"
-  project_id          = module.project.project_id
+  project_id          = data.google_project.project.id
   apigee_environments = var.apigee_environments
   ax_region           = var.ax_region
-  apigee_envgroups    = var.apigee_envgroups
-  network             = module.vpc.network.id
+  apigee_envgroups = {
+    for name, env_group in var.apigee_envgroups : name => {
+      hostnames = env_group.hostnames
+    }
+  }
   apigee_instances    = var.apigee_instances
+  disable_vpc_peering = true
 }

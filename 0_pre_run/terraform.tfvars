@@ -1,5 +1,5 @@
 /**
- * Copyright 2025 Google LLC
+ * Copyright 2024 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,15 @@
  * limitations under the License.
  */
 
-project_id = "ci-cloud-workflow-0206"
-ax_region = "europe-west1"
+project_id = "ci-cloud-spanner-c06d"
+ax_region  = "us-west1"
+
+apigee_instances = {
+  usw1-instance = {
+    region       = "us-west1"
+    environments = ["test1", "test2"]
+  }
+}
 
 apigee_environments = {
   test1 = {
@@ -41,17 +48,3 @@ apigee_envgroups = {
     hostnames = ["test.api.example.com"]
   }
 }
-
-apigee_instances = {
-  euw1-instance = {
-    region       = "europe-west1"
-    ip_range     = "10.0.0.0/22"
-    environments = ["test1", "test2"]
-  }
-}
-
-network = "apigee-network"
-
-peering_range = "10.0.0.0/22"
-
-support_range = "10.1.0.0/28"
