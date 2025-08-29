@@ -15,7 +15,7 @@
  */
 
 
-project_id = "apigee-payg-377208"
+project_id = "xxx-xxx-xx"
 vpc_name   = "sme"
 psc_subnets = [
   {
@@ -27,5 +27,5 @@ psc_subnets = [
   }
 ]
 apigee_service_attachments = {
-  "europe-west4" = "projects/sf9deee40cd0d4421p-tp/regions/us-central1/serviceAttachments/apigee-us-central1-loxr"
+  "europe-west4" = "projects/xxxx/regions/us-central1/serviceAttachments/xxx"
 }
