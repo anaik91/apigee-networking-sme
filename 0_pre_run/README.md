@@ -49,35 +49,42 @@ graph TD
     subgraph "Google Cloud Project"
         direction LR
         GCP_PROJECT[("project_id: ci-cloud-spanner-c06d")]
-        subgraph "Enabled Services"
+    end
+
+    subgraph "Enabled Services"
+        direction LR
+        SERVICE1[apigee.googleapis.com]
+        SERVICE2[cloudkms.googleapis.com]
+        SERVICE3[compute.googleapis.com]
+    end
+
+    subgraph "Apigee X"
+        direction TB
+        APIGEE_ORG("Apigee Organization")
+        APIGEE_INSTANCE["Instance: usw1-instance (europe-west2)"]
+        subgraph "Environments"
             direction LR
-            SERVICE1[apigee.googleapis.com]
-            SERVICE2[cloudkms.googleapis.com]
-            SERVICE3[compute.googleapis.com]
+            ENV1["test1"]
+            ENV2["test2"]
         end
-        subgraph "Apigee X Core"
-            direction TB
-            APIGEE_INSTANCE["Instance: usw1-instance (europe-west2)"]
-            subgraph "Environments"
-                direction LR
-                ENV1["test1"]
-                ENV2["test2"]
-            end
-            subgraph "Environment Groups"
-                direction LR
-                ENV_GROUP["test"]
-            end
-            HOSTNAME["hostname: test.api.example.com"]
+        subgraph "Environment Groups"
+            direction LR
+            ENV_GROUP["test"]
         end
+        HOSTNAME["hostname: test.api.example.com"]
+        API_PROXY["API Proxy: mock"]
     end
 
     GCP_PROJECT --> SERVICE1
     GCP_PROJECT --> SERVICE2
     GCP_PROJECT --> SERVICE3
-    GCP_PROJECT --> APIGEE_INSTANCE
+    GCP_PROJECT --> APIGEE_ORG
+    APIGEE_ORG --> APIGEE_INSTANCE
     APIGEE_INSTANCE --> ENV1
     APIGEE_INSTANCE --> ENV2
     ENV1 --> ENV_GROUP
     ENV2 --> ENV_GROUP
     ENV_GROUP --> HOSTNAME
+    APIGEE_ORG --> API_PROXY
+    API_PROXY --> ENV1
 ```
