@@ -30,7 +30,7 @@ module "vpc" {
   project_id = data.google_project.project.id
   name       = var.vpc_name
   subnets = [
-    for subnet in var.psc_subnets :
+    for subnet in concat(var.exposure_subnets, var.psc_subnets) :
     {
       "name"                = subnet.name
       "region"              = subnet.region

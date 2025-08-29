@@ -17,6 +17,18 @@
 
 project_id = "xxx-xxx-xx"
 vpc_name   = "sme"
+
+exposure_subnets = [
+  {
+    name               = "apigee-exposure-1"
+    ip_cidr_range      = "10.100.0.0/24"
+    region             = "europe-west4"
+    instance           = "euw1-instance"
+    secondary_ip_range = null
+  },
+
+]
+
 psc_subnets = [
   {
     name               = "psc-subnet-1"

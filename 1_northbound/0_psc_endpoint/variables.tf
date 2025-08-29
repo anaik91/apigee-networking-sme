@@ -24,6 +24,18 @@ variable "vpc_name" {
   type        = string
 }
 
+variable "exposure_subnets" {
+  description = "Subnets for exposing Apigee services"
+  type = list(object({
+    name               = string
+    ip_cidr_range      = string
+    region             = string
+    instance           = string
+    secondary_ip_range = map(string)
+  }))
+  default = []
+}
+
 variable "psc_subnets" {
   description = "Subnets for psc endpoints"
   type = list(object({
