@@ -15,11 +15,11 @@
  */
 
 project_id = "ci-cloud-spanner-c06d"
-ax_region  = "us-west1"
+ax_region  = "europe-west2"
 
 apigee_instances = {
   usw1-instance = {
-    region       = "us-west1"
+    region       = "europe-west2"
     environments = ["test1", "test2"]
   }
 }
