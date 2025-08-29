@@ -1,5 +1,5 @@
 /**
- * Copyright 2021 Google LLC
+ * Copyright 2024 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,16 @@
  * limitations under the License.
  */
 
-output "instance_group" {
-  description = "Proxy MIGs"
-  value       = module.bridge-mig.group_manager.instance_group
+variable "project_id" {
+  description = "Project ID."
+  type        = string
+}
+
+variable "lb_name" {
+  description = "Name of the load balancer."
+  type        = string
+}
+
+variable "instance_group" {
+  description = "References to the Migs."
 }
