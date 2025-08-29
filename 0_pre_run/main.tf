@@ -45,3 +45,16 @@ module "apigee-x-core" {
   apigee_instances    = var.apigee_instances
   disable_vpc_peering = true
 }
+
+data "archive_file" "api_proxy" {
+  type             = "zip"
+  source_dir       = "${path.module}/api_proxy"
+  output_path      = "${path.module}/${var.mock_api_proxy_name}.zip"
+  output_file_mode = "0644"
+}
+
+resource "google_apigee_api" "api_proxy" {
+  name          = var.mock_api_proxy_name
+  org_id        = module.apigee-x-core.org_id
+  config_bundle = data.archive_file.api_proxy.output_path
+}

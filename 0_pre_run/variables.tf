@@ -78,3 +78,8 @@ variable "apigee_environments" {
   }))
   default = null
 }
+
+variable "mock_api_proxy_name" {
+  description = "Name of API proxy to be created"
+  default     = "mock"
+}

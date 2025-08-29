@@ -32,3 +32,4 @@ terraform.rc
 *.key
 *.pub
 .terraform.lock.hcl
+mock.zip

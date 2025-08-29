@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<APIProxy revision="1" name="mock">
+  <DisplayName/>
+  <Description/>
+  <CreatedAt>1753644390310</CreatedAt>
+  <LastModifiedAt>1753644390310</LastModifiedAt>
+  <BasePaths>/mock</BasePaths>
+  <ProxyEndpoints>
+    <ProxyEndpoint>default</ProxyEndpoint>
+  </ProxyEndpoints>
+  <TargetEndpoints>
+    <TargetEndpoint>default</TargetEndpoint>
+  </TargetEndpoints>
+</APIProxy>
