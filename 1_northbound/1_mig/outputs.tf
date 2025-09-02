@@ -16,5 +16,5 @@
 
 output "instance_group" {
   description = "Proxy MIGs"
-  value       = module.bridge-mig.group_manager.instance_group
+  value       = module.mig
 }

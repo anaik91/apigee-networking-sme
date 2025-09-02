@@ -37,6 +37,3 @@ psc_subnets = [
     secondary_ip_range = null
   }
 ]
-apigee_service_attachments = {
-  "europe-west2" = "projects/xxxx/regions/us-central1/serviceAttachments/xxx"
-}

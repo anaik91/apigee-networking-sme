@@ -1,5 +1,0 @@
-endpoint_ip = "10.10.10.10"
-project_id  = "xxx-xxx"
-network     = "sme"
-region      = "europe-west2"
-subnet      = "apigee-exposure-1"

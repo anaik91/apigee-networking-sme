@@ -18,16 +18,19 @@ locals {
   psc_subnets = { for psc in var.psc_subnets :
     psc.name => psc
   }
+
+  exposure_subnets = { for sub in var.psc_subnets :
+    sub.name => sub
+  }
 }
 
 data "google_project" "project" {
   project_id = var.project_id
 }
 
-
 module "vpc" {
   source     = "github.com/terraform-google-modules/cloud-foundation-fabric//modules/net-vpc?ref=v42.0.0"
-  project_id = data.google_project.project.id
+  project_id = data.google_project.project.project_id
   name       = var.vpc_name
   subnets = [
     for subnet in concat(var.exposure_subnets, var.psc_subnets) :
@@ -40,10 +43,22 @@ module "vpc" {
   ]
 }
 
+module "apigee-client-vm" {
+  for_each   = local.exposure_subnets
+  source     = "github.com/terraform-google-modules/cloud-foundation-fabric//modules/compute-vm?ref=v42.0.0"
+  project_id = data.google_project.project.project_id
+  zone       = "${var.exposure_subnets[0].region}-b"
+  name       = "apigee-client-vm"
+  network_interfaces = [{
+    network    = module.vpc.self_link
+    subnetwork = module.vpc.subnet_self_links["${each.value.region}/${each.value.name}"]
+  }]
+}
+
 resource "google_compute_address" "psc_endpoint_address" {
   for_each     = local.psc_subnets
   name         = "psc-ip-${each.value.region}"
-  project      = data.google_project.project.id
+  project      = data.google_project.project.project_id
   address_type = "INTERNAL"
   subnetwork   = module.vpc.subnet_self_links["${each.value.region}/${each.value.name}"]
   region       = each.value.region
@@ -52,7 +67,7 @@ resource "google_compute_address" "psc_endpoint_address" {
 resource "google_compute_forwarding_rule" "psc_ilb_consumer" {
   for_each              = local.psc_subnets
   name                  = "psc-ea-${each.value.region}"
-  project               = data.google_project.project.id
+  project               = data.google_project.project.project_id
   region                = each.value.region
   target                = var.apigee_service_attachments[each.value.region]
   load_balancing_scheme = ""
