@@ -20,6 +20,7 @@ locals {
     "cloudkms.googleapis.com",
     "compute.googleapis.com"
   ]
+  api_deploy_env = keys(var.apigee_environments)[0]
 }
 
 data "google_project" "project" {
@@ -30,11 +31,12 @@ resource "google_project_service" "project" {
   for_each = toset(local.services)
   project  = data.google_project.project.id
   service  = each.key
+  disable_on_destroy = false
 }
 
 module "apigee-x-core" {
   source              = "../modules/apigee-x-core"
-  project_id          = data.google_project.project.id
+  project_id          = data.google_project.project.project_id
   apigee_environments = var.apigee_environments
   ax_region           = var.ax_region
   apigee_envgroups = {
@@ -55,6 +57,19 @@ data "archive_file" "api_proxy" {
 
 resource "google_apigee_api" "api_proxy" {
   name          = var.mock_api_proxy_name
-  org_id        = module.apigee-x-core.org_id
+  org_id        = module.apigee-x-core.organization.name
   config_bundle = data.archive_file.api_proxy.output_path
+}
+
+data "google_client_config" "default" {
+}
+
+resource "local_file" "deploy_apiproxy_file" {
+  content = templatefile("${path.module}/deploy-apiproxy.sh.tpl", {
+    organization = module.apigee-x-core.organization.name
+    environment  = local.api_deploy_env
+    api_name = var.mock_api_proxy_name
+  })
+  filename        = "${path.module}/deploy-apiproxy.sh"
+  file_permission = "0755"
 }
