@@ -49,6 +49,7 @@ variable "network_tags" {
 variable "region" {
   description = "GCP Region for the MIGs."
   type        = string
+  default     = "europe-west2"
 }
 
 variable "machine_type" {

@@ -38,7 +38,7 @@ variable "exposure_subnets" {
     {
       name               = "apigee-exposure-1"
       ip_cidr_range      = "10.100.0.0/24"
-      region             = "europe-west4"
+      region             = "europe-west2"
       instance           = "euw1-instance"
       secondary_ip_range = null
     },
@@ -59,7 +59,7 @@ variable "psc_subnets" {
     {
       name               = "psc-subnet-1"
       ip_cidr_range      = "10.100.255.240/29"
-      region             = "europe-west4"
+      region             = "europe-west2"
       instance           = "euw1-instance"
       secondary_ip_range = null
     }
