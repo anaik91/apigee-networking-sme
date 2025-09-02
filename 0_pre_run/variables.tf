@@ -19,31 +19,10 @@ variable "project_id" {
   type        = string
 }
 
-variable "billing_account" {
-  description = "Billing account id."
-  type        = string
-  default     = null
-}
-
-variable "project_create" {
-  description = "Create project. When set to false, uses a data source to reference existing project."
-  type        = bool
-  default     = false
-}
-
-variable "project_parent" {
-  description = "Parent folder or organization in 'folders/folder_id' or 'organizations/org_id' format."
-  type        = string
-  default     = null
-  validation {
-    condition     = var.project_parent == null || can(regex("(organizations|folders)/[0-9]+", var.project_parent))
-    error_message = "Parent must be of the form folders/folder_id or organizations/organization_id."
-  }
-}
-
 variable "ax_region" {
   description = "GCP region for storing Apigee analytics data (see https://cloud.google.com/apigee/docs/api-platform/get-started/install-cli)."
   type        = string
+  default     = "europe-west2"
 }
 
 variable "apigee_instances" {
@@ -52,7 +31,12 @@ variable "apigee_instances" {
     region       = string
     environments = list(string)
   }))
-  default = null
+  default = {
+    euw2-instance = {
+      region       = "europe-west2"
+      environments = ["test1", "test2"]
+    }
+  }
 }
 
 variable "apigee_envgroups" {
@@ -60,7 +44,11 @@ variable "apigee_envgroups" {
   type = map(object({
     hostnames = list(string)
   }))
-  default = null
+  default = {
+    test = {
+      hostnames = ["test.api.example.com"]
+    }
+  }
 }
 
 variable "apigee_environments" {
@@ -76,7 +64,24 @@ variable "apigee_environments" {
     envgroups = list(string)
     type      = optional(string)
   }))
-  default = null
+  default = {
+    test1 = {
+      display_name = "Test 1"
+      description  = "Environment created by apigee/terraform-modules"
+      node_config  = null
+      iam          = null
+      envgroups    = ["test"]
+      type         = null
+    }
+    test2 = {
+      display_name = "Test 2"
+      description  = "Environment created by apigee/terraform-modules"
+      node_config  = null
+      iam          = null
+      envgroups    = ["test"]
+      type         = null
+    }
+  }
 }
 
 variable "mock_api_proxy_name" {

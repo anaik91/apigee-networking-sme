@@ -15,8 +15,7 @@
  */
 
 
-project_id = "xxx-xxx-xx"
-vpc_name   = "sme"
+vpc_name = "apigee-sme"
 
 exposure_subnets = [
   {

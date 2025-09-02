@@ -22,6 +22,7 @@ variable "project_id" {
 variable "vpc_name" {
   description = "Project ID."
   type        = string
+  default     = "apigee-sme"
 }
 
 variable "exposure_subnets" {
@@ -33,7 +34,16 @@ variable "exposure_subnets" {
     instance           = string
     secondary_ip_range = map(string)
   }))
-  default = []
+  default = [
+    {
+      name               = "apigee-exposure-1"
+      ip_cidr_range      = "10.100.0.0/24"
+      region             = "europe-west4"
+      instance           = "euw1-instance"
+      secondary_ip_range = null
+    },
+
+  ]
 }
 
 variable "psc_subnets" {
@@ -45,7 +55,15 @@ variable "psc_subnets" {
     instance           = string
     secondary_ip_range = map(string)
   }))
-  default = []
+  default = [
+    {
+      name               = "psc-subnet-1"
+      ip_cidr_range      = "10.100.255.240/29"
+      region             = "europe-west4"
+      instance           = "euw1-instance"
+      secondary_ip_range = null
+    }
+  ]
 }
 
 variable "apigee_service_attachments" {

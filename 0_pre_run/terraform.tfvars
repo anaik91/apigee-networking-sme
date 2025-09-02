@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-project_id = "xxx-xxx-c06d"
 ax_region  = "europe-west2"
 
 apigee_instances = {
