@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-ax_region  = "europe-west2"
+ax_region = "europe-west2"
 
 apigee_instances = {
   euw2-instance = {
