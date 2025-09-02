@@ -8,7 +8,7 @@ This Terraform module sets up a basic Apigee X organization.
 graph TD
     subgraph "Google Cloud Project"
         direction LR
-        GCP_PROJECT[("project_id: ci-cloud-spanner-c06d")]
+        GCP_PROJECT[("project_id: xxx-xxx-c06d")]
     end
 
     subgraph "Enabled Services"
@@ -21,7 +21,7 @@ graph TD
     subgraph "Apigee X"
         direction TB
         APIGEE_ORG("Apigee Organization")
-        APIGEE_INSTANCE["Instance: usw1-instance (europe-west2)"]
+        APIGEE_INSTANCE["Instance: euw2-instance (europe-west2)"]
         subgraph "Environments"
             direction LR
             ENV1["test1"]

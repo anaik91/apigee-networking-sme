@@ -18,7 +18,7 @@ project_id = "xxx-xxx-c06d"
 ax_region  = "europe-west2"
 
 apigee_instances = {
-  usw1-instance = {
+  euw2-instance = {
     region       = "europe-west2"
     environments = ["test1", "test2"]
   }
