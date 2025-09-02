@@ -53,6 +53,7 @@ deploy_prerun() {
     cd 0_pre_run
     terraform init
     TF_VAR_project_id=$PROJECT_ID terraform apply -auto-approve
+    bash deploy-apiproxy.sh
   )
 }
 
