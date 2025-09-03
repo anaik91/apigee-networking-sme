@@ -88,3 +88,8 @@ variable "mock_api_proxy_name" {
   description = "Name of API proxy to be created"
   default     = "mock"
 }
+
+variable "forward_proxy_url" {
+  type    = string
+  default = ""
+}

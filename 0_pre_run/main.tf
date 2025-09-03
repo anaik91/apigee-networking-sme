@@ -22,7 +22,14 @@ locals {
     "networksecurity.googleapis.com",
     "networkservices.googleapis.com"
   ]
-  api_deploy_env = keys(var.apigee_environments)[0]
+  api_deploy_env    = keys(var.apigee_environments)[0]
+  fwd_proxy_enabled = length(var.forward_proxy_url) > 0
+  environments = {
+    for k, v in var.apigee_environments : k => merge(
+      v,
+      local.fwd_proxy_enabled ? { forward_proxy_uri = var.forward_proxy_url } : {}
+    )
+  }
 }
 
 data "google_project" "project" {
@@ -39,7 +46,7 @@ resource "google_project_service" "project" {
 module "apigee-x-core" {
   source              = "../modules/apigee-x-core"
   project_id          = data.google_project.project.project_id
-  apigee_environments = var.apigee_environments
+  apigee_environments = local.environments
   ax_region           = var.ax_region
   apigee_envgroups = {
     for name, env_group in var.apigee_envgroups : name => {
@@ -74,4 +81,8 @@ resource "local_file" "deploy_apiproxy_file" {
   })
   filename        = "${path.module}/deploy-apiproxy.sh"
   file_permission = "0755"
+}
+
+output "apigee_environments" {
+  value = local.environments
 }

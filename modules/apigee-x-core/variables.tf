@@ -74,6 +74,7 @@ variable "apigee_environments" {
     iam       = optional(map(list(string)))
     type      = optional(string)
     envgroups = list(string)
+    forward_proxy_uri = optional(string)
   }))
   default = null
 }

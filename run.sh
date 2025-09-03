@@ -17,14 +17,14 @@ info() {
 }
 
 usage() {
-  echo "Usage: $0 --project <PROJECT_ID> --[apply|destroy] [prerun|psc|mig|ilb|swp|backend|all]"
+  echo "Usage: $0 --project <PROJECT_ID> --[apply|destroy] [prerun|psc|mig|ilb|swp|backend|set_fwd_proxy|all]"
   echo " "
   echo "Arguments:"
   echo "  --project <PROJECT_ID>    : Your Google Cloud Project ID (Required)."
   echo "  --apply <stage>           : Apply the specified stage."
   echo "  --destroy <stage>         : Destroy the specified stage."
   echo " "
-  echo "Stages: [prerun, psc, mig, ilb, swp, backend, all]"
+  echo "Stages: [prerun, psc, mig, ilb, swp, backend, set_fwd_proxy, all]"
   echo " "
   echo "Example: $0 --project my-gcp-project --apply all"
   exit 1
@@ -54,6 +54,18 @@ deploy_prerun() {
     terraform init
     TF_VAR_project_id=$PROJECT_ID terraform apply -auto-approve
     bash deploy-apiproxy.sh
+  )
+}
+
+deploy_set_fwd_proxy() {
+  local fwd_proxy_url
+  fwd_proxy_url=$(cd 2_southbound/0_swp && terraform output -json | jq -r .forward_proxy_url.value)
+
+  info "Stage 2: Set Forward Proxy as $fwd_proxy_url"
+  ( # Run in a subshell to avoid changing the script's directory
+    cd 0_pre_run
+    terraform init
+    TF_VAR_project_id=$PROJECT_ID TF_VAR_forward_proxy_url=$fwd_proxy_url terraform apply -auto-approve
   )
 }
 
@@ -186,6 +198,7 @@ if [ "$ACTION" == "apply" ]; then
     ilb)     deploy_ilb ;;
     swp)     deploy_swp ;;
     backend)     deploy_backend ;;
+    set_fwd_proxy) deploy_set_fwd_proxy ;;
     all)
       deploy_prerun
       deploy_psc
@@ -193,6 +206,7 @@ if [ "$ACTION" == "apply" ]; then
       deploy_ilb
       deploy_swp
       deploy_backend
+      deploy_set_fwd_proxy
       ;;
     *) usage ;;
   esac
