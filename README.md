@@ -36,19 +36,21 @@ This directory lays the foundation for the environment. It uses the `apigee-x-co
 
 ### `1_northbound`
 This directory focuses on exposing the Apigee instance to external clients (northbound traffic). It is broken down into further sub-directories that must also be applied in order:
-- **`0_psc_endpoint`**: Creates a Private Service Connect (PSC) endpoint to connect to the Apigee instance's service attachment.
-- **`1_mig`**: Creates a Managed Instance Group (MIG) of proxy VMs that will forward traffic from the load balancer to the PSC endpoint.
-- **`2_load_balancer`**: Creates a Global External HTTPS Load Balancer to expose the MIG to the internet.
+- **`0_psc_endpoint`**: Creates a Private Service Connect (PSC) endpoint to connect to the Apigee instance's service attachment. This allows resources in your VPC to privately and securely connect to Apigee.
+- **`1_mig`**: Creates a Managed Instance Group (MIG) of proxy VMs. These VMs will receive traffic from the external load balancer and forward it to the PSC endpoint, effectively bridging the external network with the internal Apigee instance.
+- **`2_load_balancer`**: Creates a Global External HTTPS Load Balancer to expose the MIG to the internet. This provides a single, stable IP address for external clients to send their API requests to.
 
 ### `2_southbound`
 This directory is intended for configurations related to how Apigee connects to backend services (southbound traffic).
-- **`0_swp`**: Deploys a Secure Web Proxy instance.
-- **`1_backend`**: Deploys a sample Nginx backend.
+- **`0_swp`**: Deploys a Secure Web Proxy instance. This can be used to control egress traffic from Apigee, providing a secure and managed way for Apigee to connect to external services.
+- **`1_backend`**: Deploys a sample Nginx backend service. This serves as a target for API proxies deployed in Apigee, allowing you to test the end-to-end traffic flow.
+- **`2_apiproxy`**: Deploys a API Proxy with Nginx backend service.
 
 ### `modules`
 This directory contains reusable Terraform modules that encapsulate best practices and reduce code duplication.
 - **`apigee-x-core`**: A module for provisioning the core Apigee X instance and its immediate dependencies.
 - **`mig`**: A module for creating the MIG for northbound traffic.
+- **`ilb-l7`**: A module for creating the L7 ILB for northbound traffic.
 
 ## How to Use
 
