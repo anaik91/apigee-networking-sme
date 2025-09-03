@@ -24,7 +24,7 @@ usage() {
   echo "  --apply <stage>           : Apply the specified stage."
   echo "  --destroy <stage>         : Destroy the specified stage."
   echo " "
-  echo "Stages: [prerun, psc, mig, ilb, all]"
+  echo "Stages: [prerun, psc, mig, ilb, swp ,all]"
   echo " "
   echo "Example: $0 --project my-gcp-project --apply all"
   exit 1
@@ -103,6 +103,17 @@ deploy_ilb() {
 }
 
 
+deploy_swp() {
+  info "Stage 2.1: Deploying Secure Web Proxy"
+  (
+    cd 2_southbound/0_swp
+    terraform init
+    TF_VAR_instance_group=$instance_group TF_VAR_project_id=$PROJECT_ID terraform apply -auto-approve
+    # TF_VAR_instance_group=$instance_group TF_VAR_project_id=$PROJECT_ID terraform plan
+  )
+}
+
+
 # --- Destroy Functions (in REVERSE order of execution) ---
 
 destroy_ilb() {
@@ -156,11 +167,13 @@ if [ "$ACTION" == "apply" ]; then
     psc)    deploy_psc ;;
     mig)    deploy_mig ;;
     ilb)     deploy_ilb ;;
+    swp)     deploy_swp ;;
     all)
       deploy_prerun
       deploy_psc
       deploy_mig
       deploy_ilb
+      deploy_swp
       ;;
     *) usage ;;
   esac

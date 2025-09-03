@@ -18,7 +18,9 @@ locals {
   services = [
     "apigee.googleapis.com",
     "cloudkms.googleapis.com",
-    "compute.googleapis.com"
+    "compute.googleapis.com",
+    "networksecurity.googleapis.com",
+    "networkservices.googleapis.com"
   ]
   api_deploy_env = keys(var.apigee_environments)[0]
 }
