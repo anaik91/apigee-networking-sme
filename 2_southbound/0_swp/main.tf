@@ -1,3 +1,13 @@
+locals {
+  swp_policy_rules = {
+    for index, each_host in var.swp_allowlist_hosts : "host-${index}" => {
+      priority        = 1000 + index
+      allow           = true
+      session_matcher = "host() == '${each_host}'"
+    }
+  }
+}
+
 data "google_compute_network" "vpc" {
   project = var.project_id
   name    = var.vpc_name
@@ -47,6 +57,7 @@ module "swp" {
     nat_subnets          = [google_compute_subnetwork.psc.id]
     automatic_connection = true
   }
+  policy_rules = local.swp_policy_rules
 }
 
 resource "google_apigee_endpoint_attachment" "swp" {

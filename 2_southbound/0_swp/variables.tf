@@ -25,3 +25,8 @@ variable "psc_subnets" {
   type        = string
   default     = "psc-subnet-1"
 }
+
+variable "swp_allowlist_hosts" {
+  type    = list(string)
+  default = []
+}

@@ -200,6 +200,29 @@ deploy_backend() {
   )
 }
 
+allowlist_mock() {
+  check_dependency "2_southbound/0_swp" "SWP" "swp"
+  info "Stage 2.1: Allowlisting mocktarget.apigee.net"
+  (
+    cd 2_southbound/0_swp
+    terraform init
+    TF_VAR_project_id=$PROJECT_ID TF_VAR_swp_allowlist_hosts="[\"mocktarget.apigee.net\"]" terraform apply -auto-approve
+  )
+}
+
+allowlist_nginx() {
+  check_dependency "2_southbound/0_swp" "SWP" "swp"
+
+  local nginx_ip
+  nginx_ip=$(cd 2_southbound/1_backend && terraform output -json | jq -r .backend_ip.value)
+  info "Stage 2.1: Allowlisting Nginx IP: ${nginx_ip}"
+  (
+    cd 2_southbound/0_swp
+    terraform init
+    TF_VAR_project_id=$PROJECT_ID TF_VAR_swp_allowlist_hosts="[\"mocktarget.apigee.net\",\"$nginx_ip\"]" terraform apply -auto-approve
+  )
+}
+
 
 # --- Destroy Functions (in REVERSE order of execution) ---
 
@@ -279,6 +302,8 @@ elif [ "$ACTION" == "apply" ]; then
     swp)     deploy_swp ;;
     backend)     deploy_backend ;;
     set_fwd_proxy) deploy_set_fwd_proxy ;;
+    allowlist_mock) allowlist_mock ;;
+    allowlist_nginx) allowlist_nginx ;;
     all)
       deploy_prerun
       deploy_psc
