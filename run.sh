@@ -17,7 +17,7 @@ info() {
 }
 
 usage() {
-  echo "Usage: $0 --project <PROJECT_ID> --[apply|destroy|client] [prerun|psc|mig|ilb|swp|backend|set_fwd_proxy|all|access]"
+  echo "Usage: $0 --project <PROJECT_ID> --[apply|destroy|client] [prerun|psc|mig|ilb|swp|backend|set_fwd_proxy|all|access,access_test_psc,access_test_mig,access_test_lb]"
   echo " "
   echo "Arguments:"
   echo "  --project <PROJECT_ID>    : Your Google Cloud Project ID (Required)."
@@ -25,7 +25,7 @@ usage() {
   echo "  --apply <stage>           : Apply the specified stage."
   echo "  --destroy <stage>         : Destroy the specified stage."
   echo " "
-  echo "Stages for client: [access]"
+  echo "Stages for client: [access,access_test_psc,access_test_mig,access_test_lb]"
   echo "Stages for apply & destroy: [prerun, psc, mig, ilb, swp, backend, set_fwd_proxy, all]"
   echo " "
   echo "Example: $0 --project my-gcp-project --apply all"
@@ -57,12 +57,61 @@ gcloud_ssh() {
   )
 }
 
-gcloud_ssh_curl() {
+gcloud_ssh_curl_psc() {
   check_dependency "1_northbound/0_psc_endpoint" "PSC Endpoint" "psc"
-  info "Stage 0: SSH ing into the client VM and sending a curl request"
+
+  local psc_endpoint_address
+  psc_endpoint_address=$(cd 1_northbound/0_psc_endpoint && terraform output -json | jq -r '.psc_endpoint_address.value."europe-west2".address')
+
+  info "Stage 0: SSH ing into the client VM and sending a curl request to PSC IP: $psc_endpoint_address"
+  ( 
+    gcloud compute ssh --zone "europe-west2-b" "apigee-client-vm" --tunnel-through-iap --project "$PROJECT_ID" -- \
+    curl --connect-to "test.api.example.com:443:${psc_endpoint_address}" https://test.api.example.com/mock -k -v
+  )
+}
+
+gcloud_ssh_curl_mig() {
+  check_dependency "1_northbound/1_mig" "MIG" "mig"
+  mig_name=$(cd 1_northbound/1_mig && terraform output -json | jq -r '.instance_group.value."europe-west2".instance_group' | xargs -I {} basename {})
+  local instance_names
+  instance_names=$(gcloud compute instance-groups managed list-instances "$mig_name" \
+    --project="$PROJECT_ID" \
+    --region="europe-west2" \
+    --format="value(instance.basename())")
+  
+  # Exit if no instances are found in the MIG
+  if [ -z "$instance_names" ]; then
+    echo "🟡 No instances found in MIG '$mig_name' in project '$PROJECT_ID'."
+    return 0
+  fi
+
+  local instance_filter
+  instance_filter=$(echo "$instance_names" | tr '\n' ' ')
+
+  echo "✅ Private IPs for instances in MIG '$mig_name':"
+  for ip in $(gcloud compute instances list \
+    --project="$PROJECT_ID" \
+    --filter="name:($instance_filter)" \
+    --format="value(networkInterfaces[0].networkIP)")
+  do 
+    info "Stage 0: SSH ing into the client VM and sending a curl request to IP: $ip"
+    (
+      gcloud compute ssh --zone "europe-west2-b" "apigee-client-vm" --tunnel-through-iap --project "$PROJECT_ID" -- \
+      curl --connect-to "test.api.example.com:443:$ip" https://test.api.example.com/mock -k -v
+    )
+  done
+}
+
+gcloud_ssh_curl_lb() {
+  check_dependency "1_northbound/2_load_balancer" "LoadBalancer" "lb"
+
+  local lb_address
+  lb_address=$(cd 1_northbound/2_load_balancer && terraform output -json | jq -r '.address.value.[0]')
+
+  info "Stage 0: SSH ing into the client VM and sending a curl request to IP: $lb_address"
   (
     gcloud compute ssh --zone "europe-west2-b" "apigee-client-vm" --tunnel-through-iap --project "$PROJECT_ID" -- \
-    curl --connect-to test.api.example.com:443:10.100.255.246 https://test.api.example.com/mock -k -v
+    curl --connect-to "test.api.example.com:443:$lb_address" https://test.api.example.com/mock -k -v
   )
 }
 
@@ -110,7 +159,6 @@ deploy_mig() {
 
   local psc_endpoint_address
   psc_endpoint_address=$(cd 1_northbound/0_psc_endpoint && terraform output -json | jq -c .psc_endpoint_address.value)
-
   (
     cd 1_northbound/1_mig
     terraform init
@@ -132,8 +180,8 @@ deploy_ilb() {
   )
 }
 
-
 deploy_swp() {
+  check_dependency "1_northbound/2_load_balancer" "LoadBalancer" "lb"
   info "Stage 2.1: Deploying Secure Web Proxy"
   (
     cd 2_southbound/0_swp
@@ -143,6 +191,7 @@ deploy_swp() {
 }
 
 deploy_backend() {
+  check_dependency "2_southbound/0_swp" "SWP" "swp"
   info "Stage 2.2: Deploying Sample Nginx Backend"
   (
     cd 2_southbound/1_backend
@@ -214,7 +263,9 @@ info "Using Project ID: $PROJECT_ID"
 if [ "$ACTION" == "client" ]; then
   case $STAGE in
     access) gcloud_ssh ;;
-    access_test)    gcloud_ssh_curl ;;
+    access_test_psc)    gcloud_ssh_curl_psc ;;
+    access_test_mig)    gcloud_ssh_curl_mig ;;
+    access_test_lb)    gcloud_ssh_curl_lb ;;
     *) usage ;;
   esac
   info "Client Action Complete!"
