@@ -17,16 +17,17 @@ info() {
 }
 
 usage() {
-  echo "Usage: $0 --project <PROJECT_ID> --[apply|destroy|client] [prerun|psc|mig|ilb|swp|backend|set_fwd_proxy|all|access,access_test_psc,access_test_mig,access_test_lb]"
+  echo "Usage: $0 --project <PROJECT_ID> --[apply|destroy|client] <stage>"
   echo " "
   echo "Arguments:"
   echo "  --project <PROJECT_ID>    : Your Google Cloud Project ID (Required)."
-  echo "  --client <stage>           : Apply the specified stage."
+  echo "  --client <stage>          : Client access stages."
   echo "  --apply <stage>           : Apply the specified stage."
   echo "  --destroy <stage>         : Destroy the specified stage."
   echo " "
-  echo "Stages for client: [access,access_test_psc,access_test_mig,access_test_lb]"
-  echo "Stages for apply & destroy: [prerun, psc, mig, ilb, swp, backend, set_fwd_proxy, all]"
+  echo "Stages for client: [access, access_test_psc, access_test_mig, access_test_lb]"
+  echo "Stages for apply: [prerun, psc, mig, ilb, swp, backend, set_fwd_proxy, allowlist_mock, allowlist_nginx, deploy_backend_proxy, all]"
+  echo "Stages for destroy: [prerun, psc, mig, ilb, swp, backend, all]"
   echo " "
   echo "Example: $0 --project my-gcp-project --apply all"
   exit 1

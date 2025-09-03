@@ -61,39 +61,44 @@ The `run.sh` script is the recommended way to apply and destroy the infrastructu
     ```
 
 2.  **Run the script:**
-    The script requires your Google Cloud Project ID and the desired action (`--apply`, `--destroy` or `--client`) and stage.
+    The script requires your Google Cloud Project ID and the desired action (`--apply`, `--destroy` or `--client`) and stage. The script will handle the correct order of execution and destruction automatically.
 
-    **To apply all stages:**
+    **Example:**
     ```sh
     ./run.sh --project YOUR_PROJECT_ID --apply all
     ```
 
-    **To apply a specific stage:**
-    ```sh
-    ./run.sh --project YOUR_PROJECT_ID --apply [prerun|psc|mig|ilb|swp|backend|set_fwd_proxy]
-    ```
+### Script Arguments and Stages
 
-    For example, to only deploy the Apigee X instance:
-    ```sh
-    ./run.sh --project YOUR_PROJECT_ID --apply prerun
-    ```
-
-    **To SSH into the client VM and test connectivity:**
-    ```sh
-    ./run.sh --project YOUR_PROJECT_ID --client [access|access_test_psc|access_test_mig|access_test_lb]
-    ```
+| Action      | Stage                  | Description                                                 |
+| :---------- | :--------------------- | :---------------------------------------------------------- |
+| **`--apply`**   | `prerun`               | Deploys the core Apigee X instance and network foundation.  |
+|             | `psc`                  | Creates a Private Service Connect (PSC) endpoint.           |
+|             | `mig`                  | Creates a Managed Instance Group (MIG) as a proxy layer.    |
+|             | `ilb`                  | Deploys an Internal Load Balancer for the MIG.              |
+|             | `swp`                  | Deploys a Secure Web Proxy for southbound traffic.          |
+|             | `backend`              | Deploys a sample Nginx backend service.                     |
+|             | `set_fwd_proxy`        | Configures Apigee to use the SWP as a forward proxy.        |
+|             | `allowlist_mock`       | Adds `mocktarget.apigee.net` to the SWP allowlist.          |
+|             | `allowlist_nginx`      | Adds the Nginx backend IP to the SWP allowlist.             |
+|             | `deploy_backend_proxy` | Deploys an API proxy that connects to the Nginx backend.    |
+|             | `all`                  | Applies all stages sequentially from `prerun` to `set_fwd_proxy`. |
+| **`--destroy`** | `backend`              | Destroys the sample Nginx backend.                          |
+|             | `swp`                  | Destroys the Secure Web Proxy.                              |
+|             | `ilb`                  | Destroys the Internal Load Balancer.                        |
+|             | `mig`                  | Destroys the Managed Instance Group.                        |
+|             | `psc`                  | Destroys the PSC endpoint.                                  |
+|             | `prerun`               | Destroys the core Apigee X instance.                        |
+|             | `all`                  | Destroys all stages in the correct reverse order.           |
+| **`--client`**  | `access`               | Opens an SSH session into the client test VM.               |
+|             | `access_test_psc`      | SSH into the client and tests connectivity to the PSC endpoint. |
+|             | `access_test_mig`      | SSH into the client and tests connectivity to the MIG instances. |
+|             | `access_test_lb`       | SSH into the client and tests connectivity to the Load Balancer. |
 
 ## Cleanup
 
-To destroy the resources, use the `--destroy` flag with the `run.sh` script. You can destroy all resources or specific stages.
+To destroy all resources created by the script, use the `all` stage with the `--destroy` flag.
 
-**To destroy all stages:**
 ```sh
 ./run.sh --project YOUR_PROJECT_ID --destroy all
 ```
-
-**To destroy a specific stage:**
-```sh
-./run.sh --project YOUR_PROJECT_ID --destroy [backend|swp|ilb|mig|psc|prerun]
-```
-The script will handle the reverse order of destruction automatically.
