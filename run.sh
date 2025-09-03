@@ -17,14 +17,14 @@ info() {
 }
 
 usage() {
-  echo "Usage: $0 --project <PROJECT_ID> --[apply|destroy] [prerun|psc|mig|lb|all]"
+  echo "Usage: $0 --project <PROJECT_ID> --[apply|destroy] [prerun|psc|mig|ilb|all]"
   echo " "
   echo "Arguments:"
   echo "  --project <PROJECT_ID>    : Your Google Cloud Project ID (Required)."
   echo "  --apply <stage>           : Apply the specified stage."
   echo "  --destroy <stage>         : Destroy the specified stage."
   echo " "
-  echo "Stages: [prerun, psc, mig, lb, all]"
+  echo "Stages: [prerun, psc, mig, ilb, all]"
   echo " "
   echo "Example: $0 --project my-gcp-project --apply all"
   exit 1
@@ -87,7 +87,7 @@ deploy_mig() {
   )
 }
 
-deploy_lb() {
+deploy_ilb() {
   check_dependency "1_northbound/1_mig" "MIG" "mig"
   info "Stage 1.2: Deploying Northbound Load Balancer"
 
@@ -105,7 +105,7 @@ deploy_lb() {
 
 # --- Destroy Functions (in REVERSE order of execution) ---
 
-destroy_lb() {
+destroy_ilb() {
   info "Destroying Northbound Load Balancer"
   (cd 1_northbound/2_load_balancer && terraform destroy -auto-approve)
 }
@@ -155,12 +155,12 @@ if [ "$ACTION" == "apply" ]; then
     prerun) deploy_prerun ;;
     psc)    deploy_psc ;;
     mig)    deploy_mig ;;
-    lb)     deploy_lb ;;
+    ilb)     deploy_ilb ;;
     all)
       deploy_prerun
       deploy_psc
       deploy_mig
-      deploy_lb
+      deploy_ilb
       ;;
     *) usage ;;
   esac
@@ -168,12 +168,12 @@ if [ "$ACTION" == "apply" ]; then
 
 elif [ "$ACTION" == "destroy" ]; then
   case $STAGE in
-    lb)     destroy_lb ;;
+    ilb)     destroy_ilb ;;
     mig)    destroy_mig ;;
     psc)    destroy_psc ;;
     prerun) destroy_prerun ;;
     all)
-      destroy_lb
+      destroy_ilb
       destroy_mig
       destroy_psc
       destroy_prerun
