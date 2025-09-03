@@ -17,14 +17,14 @@ info() {
 }
 
 usage() {
-  echo "Usage: $0 --project <PROJECT_ID> --[apply|destroy] [prerun|psc|mig|ilb|all]"
+  echo "Usage: $0 --project <PROJECT_ID> --[apply|destroy] [prerun|psc|mig|ilb|swp|backend|all]"
   echo " "
   echo "Arguments:"
   echo "  --project <PROJECT_ID>    : Your Google Cloud Project ID (Required)."
   echo "  --apply <stage>           : Apply the specified stage."
   echo "  --destroy <stage>         : Destroy the specified stage."
   echo " "
-  echo "Stages: [prerun, psc, mig, ilb, swp ,all]"
+  echo "Stages: [prerun, psc, mig, ilb, swp, backend, all]"
   echo " "
   echo "Example: $0 --project my-gcp-project --apply all"
   exit 1
@@ -98,7 +98,6 @@ deploy_ilb() {
     cd 1_northbound/2_load_balancer
     terraform init
     TF_VAR_instance_group=$instance_group TF_VAR_project_id=$PROJECT_ID terraform apply -auto-approve
-    # TF_VAR_instance_group=$instance_group TF_VAR_project_id=$PROJECT_ID terraform plan
   )
 }
 
@@ -108,8 +107,16 @@ deploy_swp() {
   (
     cd 2_southbound/0_swp
     terraform init
-    TF_VAR_instance_group=$instance_group TF_VAR_project_id=$PROJECT_ID terraform apply -auto-approve
-    # TF_VAR_instance_group=$instance_group TF_VAR_project_id=$PROJECT_ID terraform plan
+    TF_VAR_project_id=$PROJECT_ID terraform apply -auto-approve
+  )
+}
+
+deploy_backend() {
+  info "Stage 2.2: Deploying Sample Nginx Backend"
+  (
+    cd 2_southbound/1_backend
+    terraform init
+    TF_VAR_project_id=$PROJECT_ID terraform apply -auto-approve
   )
 }
 
@@ -168,12 +175,14 @@ if [ "$ACTION" == "apply" ]; then
     mig)    deploy_mig ;;
     ilb)     deploy_ilb ;;
     swp)     deploy_swp ;;
+    backend)     deploy_backend ;;
     all)
       deploy_prerun
       deploy_psc
       deploy_mig
       deploy_ilb
       deploy_swp
+      deploy_backend
       ;;
     *) usage ;;
   esac
