@@ -50,6 +50,7 @@ module "bridge-template" {
     auto_create = true
     scopes      = ["cloud-platform"]
   }
+
 }
 
 module "bridge-mig" {

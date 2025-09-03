@@ -97,8 +97,8 @@ deploy_lb() {
   (
     cd 1_northbound/2_load_balancer
     terraform init
-    # TF_VAR_instance_group=$instance_group TF_VAR_project_id=$PROJECT_ID terraform apply -auto-approve
-    TF_VAR_instance_group=$instance_group TF_VAR_project_id=$PROJECT_ID terraform plan
+    TF_VAR_instance_group=$instance_group TF_VAR_project_id=$PROJECT_ID terraform apply -auto-approve
+    # TF_VAR_instance_group=$instance_group TF_VAR_project_id=$PROJECT_ID terraform plan
   )
 }
 

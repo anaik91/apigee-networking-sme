@@ -43,7 +43,7 @@ variable "name" {
 variable "network_tags" {
   description = "Network tags for the Bridge VMs."
   type        = list(string)
-  default     = ["apigee-bridge"]
+  default     = ["apigee-bridge","ssh"]
 }
 
 variable "region" {

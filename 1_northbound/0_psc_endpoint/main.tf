@@ -53,6 +53,35 @@ module "apigee-client-vm" {
     network    = module.vpc.self_link
     subnetwork = module.vpc.subnet_self_links["${each.value.region}/${each.value.name}"]
   }]
+  tags = ["ssh"]
+}
+
+resource "google_compute_firewall" "https" {
+  project       = var.project_id
+  name          = "https-firewall-rule"
+  network       = module.vpc.self_link
+  description   = "Creates firewall rule targeting tagged instances"
+  direction     = "INGRESS"
+  source_ranges = ["0.0.0.0/0"]
+  allow {
+    protocol = "tcp"
+    ports    = ["443"]
+  }
+  # target_tags = ["ssh"]
+}
+
+resource "google_compute_firewall" "ssh" {
+  project       = var.project_id
+  name          = "ssh-firewall-rule"
+  network       = module.vpc.self_link
+  description   = "Creates firewall rule targeting tagged instances"
+  direction     = "INGRESS"
+  source_ranges = ["0.0.0.0/0"]
+  allow {
+    protocol = "tcp"
+    ports    = ["22"]
+  }
+  target_tags = ["ssh"]
 }
 
 resource "google_compute_address" "psc_endpoint_address" {
