@@ -123,6 +123,16 @@ deploy_backend() {
 
 # --- Destroy Functions (in REVERSE order of execution) ---
 
+destroy_backend() {
+  info "Destroying Sample Nginx Backend"
+  (cd 2_southbound/1_backend && terraform destroy -auto-approve)
+}
+
+destroy_swp() {
+  info "Destroying Secure Web Proxy"
+  (cd 2_southbound/0_swp && terraform destroy -auto-approve)
+}
+
 destroy_ilb() {
   info "Destroying Northbound Load Balancer"
   (cd 1_northbound/2_load_balancer && terraform destroy -auto-approve)
@@ -190,11 +200,15 @@ if [ "$ACTION" == "apply" ]; then
 
 elif [ "$ACTION" == "destroy" ]; then
   case $STAGE in
+    backend) destroy_backend ;;
+    swp)     destroy_swp ;;
     ilb)     destroy_ilb ;;
     mig)    destroy_mig ;;
     psc)    destroy_psc ;;
     prerun) destroy_prerun ;;
     all)
+      destroy_backend
+      destroy_swp
       destroy_ilb
       destroy_mig
       destroy_psc

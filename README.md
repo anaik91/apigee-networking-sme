@@ -12,15 +12,14 @@ Before you begin, ensure you have the following installed and configured:
 
 ## Execution Flow
 
-The Terraform configurations are designed to be run in a specific order. Each numbered folder represents a distinct stage of the deployment. You must apply the configurations sequentially, starting from `0_pre_run`.
+The Terraform configurations are designed to be run in a specific order. Each numbered folder represents a distinct stage of the deployment. The included `run.sh` script automates this process, ensuring stages are applied or destroyed in the correct sequence.
 
 ```mermaid
 graph TD
-    U1[User Invoke] --> A
+    U1[User Invoke run.sh] --> A
     subgraph "Terraform Execution Flow"
-        A[terraform apply in 0_pre_run] --> B;
-        B[0. Pre-Run: Apigee X Core] --> C[1. Northbound: External Access];
-        C --> D[2. Southbound: Backend Connectivity];
+        A[0. Pre-Run: Apigee X Core] --> B[1. Northbound: External Access];
+        B --> C[2. Southbound: Backend Connectivity];
     end
     style A fill:#f9f,stroke:#333,stroke-width:2px
     style B fill:#ccf,stroke:#333,stroke-width:2px
@@ -42,15 +41,18 @@ This directory focuses on exposing the Apigee instance to external clients (nort
 - **`2_load_balancer`**: Creates a Global External HTTPS Load Balancer to expose the MIG to the internet.
 
 ### `2_southbound`
-This directory is intended for configurations related to how Apigee connects to backend services (southbound traffic). Examples could include setting up VPC Peering, PSC for backends, or Cloud NAT for static egress IPs.
-*(This section may be a placeholder for future patterns).*
+This directory is intended for configurations related to how Apigee connects to backend services (southbound traffic).
+- **`0_swp`**: Deploys a Secure Web Proxy instance.
+- **`1_backend`**: Deploys a sample Nginx backend.
 
 ### `modules`
 This directory contains reusable Terraform modules that encapsulate best practices and reduce code duplication.
 - **`apigee-x-core`**: A module for provisioning the core Apigee X instance and its immediate dependencies.
-- **`mig-l7xlb`**: A module for creating the MIG and Load Balancer combination for northbound traffic.
+- **`mig`**: A module for creating the MIG for northbound traffic.
 
 ## How to Use
+
+The `run.sh` script is the recommended way to apply and destroy the infrastructure.
 
 1.  **Clone the repository:**
     ```sh
@@ -58,38 +60,35 @@ This directory contains reusable Terraform modules that encapsulate best practic
     cd apigee-networking-sme
     ```
 
-2.  **Configure and Apply Each Stage:**
-    For each directory (`0_pre_run`, `1_northbound/0_psc_endpoint`, etc.), follow these steps:
-    
-    a. Navigate into the directory:
-       ```sh
-       cd 0_pre_run
-       ```
-    
-    b. **(Important)** Create or modify the `terraform.tfvars` file to match your GCP project details and desired configuration.
-    
-    c. Initialize Terraform:
-       ```sh
-       terraform init
-       ```
-    
-    d. Review the execution plan:
-       ```sh
-       terraform plan
-       ```
-    
-    e. Apply the configuration:
-       ```sh
-       terraform apply
-       ```
+2.  **Run the script:**
+    The script requires your Google Cloud Project ID and the desired action (`--apply` or `--destroy`) and stage.
 
-3.  **Proceed to the next directory in sequence.**
+    **To apply all stages:**
+    ```sh
+    ./run.sh --project YOUR_PROJECT_ID --apply all
+    ```
+
+    **To apply a specific stage:**
+    ```sh
+    ./run.sh --project YOUR_PROJECT_ID --apply [prerun|psc|mig|ilb|swp|backend]
+    ```
+
+    For example, to only deploy the Apigee X instance:
+    ```sh
+    ./run.sh --project YOUR_PROJECT_ID --apply prerun
+    ```
 
 ## Cleanup
 
-To destroy the resources, run `terraform destroy` in each directory in the **reverse order** of creation.
-1.  `2_southbound`
-2.  `1_northbound/2_load_balancer`
-3.  `1_northbound/1_mig`
-4.  `1_northbound/0_psc_endpoint`
-5.  `0_pre_run`
+To destroy the resources, use the `--destroy` flag with the `run.sh` script. You can destroy all resources or specific stages.
+
+**To destroy all stages:**
+```sh
+./run.sh --project YOUR_PROJECT_ID --destroy all
+```
+
+**To destroy a specific stage:**
+```sh
+./run.sh --project YOUR_PROJECT_ID --destroy [ilb|mig|psc|prerun]
+```
+The script will handle the reverse order of destruction automatically.
