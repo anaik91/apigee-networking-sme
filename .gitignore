@@ -33,3 +33,4 @@ terraform.rc
 *.pub
 .terraform.lock.hcl
 mock.zip
+deploy-apiproxy.sh
