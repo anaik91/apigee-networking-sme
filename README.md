@@ -1,4 +1,4 @@
-# Apigee Networking SME - Terraform Examples
+# Apigee Networking SME - Terraform Scenario Based Session
 
 This repository contains Terraform code to demonstrate common networking patterns for Google Cloud Apigee X. The configurations are structured sequentially to build up a complete environment, from the core Apigee instance to northbound and southbound traffic management.
 
