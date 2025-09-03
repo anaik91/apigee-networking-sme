@@ -17,14 +17,16 @@ info() {
 }
 
 usage() {
-  echo "Usage: $0 --project <PROJECT_ID> --[apply|destroy] [prerun|psc|mig|ilb|swp|backend|set_fwd_proxy|all]"
+  echo "Usage: $0 --project <PROJECT_ID> --[apply|destroy|client] [prerun|psc|mig|ilb|swp|backend|set_fwd_proxy|all|access]"
   echo " "
   echo "Arguments:"
   echo "  --project <PROJECT_ID>    : Your Google Cloud Project ID (Required)."
+  echo "  --client <stage>           : Apply the specified stage."
   echo "  --apply <stage>           : Apply the specified stage."
   echo "  --destroy <stage>         : Destroy the specified stage."
   echo " "
-  echo "Stages: [prerun, psc, mig, ilb, swp, backend, set_fwd_proxy, all]"
+  echo "Stages for client: [access]"
+  echo "Stages for apply & destroy: [prerun, psc, mig, ilb, swp, backend, set_fwd_proxy, all]"
   echo " "
   echo "Example: $0 --project my-gcp-project --apply all"
   exit 1
@@ -46,6 +48,23 @@ check_dependency() {
 }
 
 # --- Deployment Functions (in order of execution) ---
+
+gcloud_ssh() {
+  check_dependency "1_northbound/0_psc_endpoint" "PSC Endpoint" "psc"
+  info "Stage 0: SSH ing into the client VM"
+  (
+    gcloud compute ssh --zone "europe-west2-b" "apigee-client-vm" --tunnel-through-iap --project "$PROJECT_ID"
+  )
+}
+
+gcloud_ssh_curl() {
+  check_dependency "1_northbound/0_psc_endpoint" "PSC Endpoint" "psc"
+  info "Stage 0: SSH ing into the client VM and sending a curl request"
+  (
+    gcloud compute ssh --zone "europe-west2-b" "apigee-client-vm" --tunnel-through-iap --project "$PROJECT_ID" -- \
+    curl --connect-to test.api.example.com:443:10.100.255.246 https://test.api.example.com/mock -k -v
+  )
+}
 
 deploy_prerun() {
   info "Stage 0: Deploying Pre-run (Apigee Core)"
@@ -173,6 +192,7 @@ while [[ $# -gt 0 ]]; do
   key="$1"
   case $key in
     --project) PROJECT_ID="$2"; shift; shift;;
+    --client) ACTION="client"; STAGE="$2"; shift; shift;;
     --apply) ACTION="apply"; STAGE="$2"; shift; shift;;
     --destroy) ACTION="destroy"; STAGE="$2"; shift; shift;;
     *) usage;;
@@ -190,7 +210,16 @@ export TF_VAR_project_id=$PROJECT_ID
 info "Using Project ID: $PROJECT_ID"
 
 # Execute the requested action and stage
-if [ "$ACTION" == "apply" ]; then
+# Execute the requested action and stage
+if [ "$ACTION" == "client" ]; then
+  case $STAGE in
+    access) gcloud_ssh ;;
+    access_test)    gcloud_ssh_curl ;;
+    *) usage ;;
+  esac
+  info "Client Action Complete!"
+
+elif [ "$ACTION" == "apply" ]; then
   case $STAGE in
     prerun) deploy_prerun ;;
     psc)    deploy_psc ;;
