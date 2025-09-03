@@ -22,8 +22,8 @@ variable "project_id" {
 
 variable "psc_endpoint_address" {
   type = map(object({
-    address = string
-    network = string
+    address    = string
+    network    = string
     subnetwork = string
   }))
 }

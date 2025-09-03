@@ -63,13 +63,13 @@ deploy_psc() {
   
   # Read output directly from the dependency's state
   local apigee_sa
-  apigee_sa=$(cd 0_pre_run && terraform output -raw apigee_service_attachment)
+  apigee_sa=$(cd 0_pre_run && terraform output -json | jq -c .apigee_service_attachments.value)
 
   (
     cd 1_northbound/0_psc_endpoint
     terraform init
     # Pass the output from the previous step as a TF_VAR for this command
-    TF_VAR_apigee_service_attachment=$apigee_sa TF_VAR_project_id=$PROJECT_ID terraform apply -auto-approve
+    TF_VAR_apigee_service_attachments=$apigee_sa TF_VAR_project_id=$PROJECT_ID terraform apply -auto-approve
   )
 }
 
@@ -77,13 +77,13 @@ deploy_mig() {
   check_dependency "1_northbound/0_psc_endpoint" "PSC Endpoint" "psc"
   info "Stage 1.1: Deploying Northbound MIG"
 
-  local psc_neg_name
-  psc_neg_name=$(cd 1_northbound/0_psc_endpoint && terraform output -raw psc_neg_name)
+  local psc_endpoint_address
+  psc_endpoint_address=$(cd 1_northbound/0_psc_endpoint && terraform output -json | jq -c .psc_endpoint_address.value)
 
   (
     cd 1_northbound/1_mig
     terraform init
-    TF_VAR_psc_neg_name=$psc_neg_name TF_VAR_project_id=$PROJECT_ID terraform apply -auto-approve
+    TF_VAR_psc_endpoint_address=$psc_endpoint_address TF_VAR_project_id=$PROJECT_ID terraform apply -auto-approve
   )
 }
 
@@ -91,13 +91,14 @@ deploy_lb() {
   check_dependency "1_northbound/1_mig" "MIG" "mig"
   info "Stage 1.2: Deploying Northbound Load Balancer"
 
-  local mig_instance_group
-  mig_instance_group=$(cd 1_northbound/1_mig && terraform output -raw instance_group_name)
+  local instance_group
+  instance_group=$(cd 1_northbound/1_mig && terraform output -json | jq -c .instance_group.value)
   
   (
     cd 1_northbound/2_load_balancer
     terraform init
-    TF_VAR_mig_instance_group=$mig_instance_group TF_VAR_project_id=$PROJECT_ID terraform apply -auto-approve
+    # TF_VAR_instance_group=$instance_group TF_VAR_project_id=$PROJECT_ID terraform apply -auto-approve
+    TF_VAR_instance_group=$instance_group TF_VAR_project_id=$PROJECT_ID terraform plan
   )
 }
 

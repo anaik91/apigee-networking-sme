@@ -28,9 +28,9 @@ data "google_project" "project" {
 }
 
 resource "google_project_service" "project" {
-  for_each = toset(local.services)
-  project  = data.google_project.project.id
-  service  = each.key
+  for_each           = toset(local.services)
+  project            = data.google_project.project.id
+  service            = each.key
   disable_on_destroy = false
 }
 
@@ -68,7 +68,7 @@ resource "local_file" "deploy_apiproxy_file" {
   content = templatefile("${path.module}/deploy-apiproxy.sh.tpl", {
     organization = module.apigee-x-core.organization.name
     environment  = local.api_deploy_env
-    api_name = var.mock_api_proxy_name
+    api_name     = var.mock_api_proxy_name
   })
   filename        = "${path.module}/deploy-apiproxy.sh"
   file_permission = "0755"

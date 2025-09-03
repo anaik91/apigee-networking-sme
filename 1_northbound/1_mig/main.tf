@@ -14,11 +14,16 @@
  * limitations under the License.
  */
 
+
+data "google_project" "project" {
+  project_id = var.project_id
+}
+
 module "mig" {
-  for_each = var.psc_endpoint_address
-  source = "../../modules/mig"
+  for_each    = var.psc_endpoint_address
+  source      = "../../modules/mig"
   endpoint_ip = each.value.address
-  project_id  = var.project_id
+  project_id  = data.google_project.project.project_id
   network     = each.value.network
   region      = each.key
   subnet      = each.value.subnetwork

@@ -19,11 +19,15 @@ variable "project_id" {
   type        = string
 }
 
-variable "lb_name" {
-  description = "Name of the load balancer."
+variable "vpc_name" {
+  description = "Project ID."
   type        = string
+  default     = "apigee-sme"
 }
 
 variable "instance_group" {
   description = "References to the Migs."
+  type = map(object({
+    instance_group = string
+  }))
 }

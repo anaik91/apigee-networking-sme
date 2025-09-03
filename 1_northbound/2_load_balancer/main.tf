@@ -14,35 +14,38 @@
  * limitations under the License.
  */
 
+
 locals {
-  hostname = "${replace(google_compute_global_address.external_address.address, ".", "-")}.nip.io"
-  domains  = [local.hostname]
-}
+  mig_info = {
+    for key, value in var.instance_group :
+    key => data.google_compute_region_instance_group_manager.migs[key]
+  }
 
-resource "google_compute_global_address" "external_address" {
-  name         = "lb-${var.lb_name}-ip"
-  project      = var.project_id
-  address_type = "EXTERNAL"
-}
-
-data "google_compute_global_address" "my_lb_external_address" {
-  name    = google_compute_global_address.external_address.name
-  project = var.project_id
-}
-
-resource "google_compute_managed_ssl_certificate" "google_cert" {
-  project = var.project_id
-  name    = "ssl-cert"
-  managed {
-    domains = local.domains
+  template_info = {
+    for key, value in var.instance_group :
+    key => data.google_compute_region_instance_template.migs[key]
   }
 }
 
-module "mig-l7xlb" {
-  source          = "../../modules/mig-l7xlb"
-  project_id      = var.project_id
-  name            = var.lb_name
-  backend_migs    = [var.instance_group]
-  ssl_certificate = [google_compute_managed_ssl_certificate.google_cert.id]
-  external_ip     = data.google_compute_global_address.my_lb_external_address.address
+data "google_compute_region_instance_group_manager" "migs" {
+  for_each = var.instance_group
+  project  = var.project_id
+  region   = split("/", each.value.instance_group)[8]
+  name     = split("/", each.value.instance_group)[10]
+}
+
+
+data "google_compute_region_instance_template" "migs" {
+  for_each = local.mig_info
+  project  = var.project_id
+  name     = split("/", each.value.version[0].instance_template)[10]
+  region   = split("/", each.value.version[0].instance_template)[8]
+}
+
+output "mig_info" {
+  value = local.mig_info
+}
+
+output "template_info" {
+  value = local.template_info
 }
