@@ -1,0 +1,15 @@
+  <TargetEndpoint name="default">
+  <PreFlow name="PreFlow">
+    <Request/>
+    <Response/>
+  </PreFlow>
+  <Flows/>
+  <PostFlow name="PostFlow">
+    <Request/>
+    <Response/>
+  </PostFlow>
+  <HTTPTargetConnection>
+    <Properties/>
+    <URL>http://10.100.0.9</URL>
+  </HTTPTargetConnection>
+</TargetEndpoint>

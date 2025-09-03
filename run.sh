@@ -202,7 +202,7 @@ deploy_backend() {
 
 allowlist_mock() {
   check_dependency "2_southbound/0_swp" "SWP" "swp"
-  info "Stage 2.1: Allowlisting mocktarget.apigee.net"
+  info "Stage : Allowlisting mocktarget.apigee.net"
   (
     cd 2_southbound/0_swp
     terraform init
@@ -215,11 +215,24 @@ allowlist_nginx() {
 
   local nginx_ip
   nginx_ip=$(cd 2_southbound/1_backend && terraform output -json | jq -r .backend_ip.value)
-  info "Stage 2.1: Allowlisting Nginx IP: ${nginx_ip}"
+  info "Stage : Allowlisting Nginx IP: ${nginx_ip}"
   (
     cd 2_southbound/0_swp
     terraform init
     TF_VAR_project_id=$PROJECT_ID TF_VAR_swp_allowlist_hosts="[\"mocktarget.apigee.net\",\"$nginx_ip\"]" terraform apply -auto-approve
+  )
+}
+
+deploy_backend_proxy() {
+  check_dependency "2_southbound/1_backend" "Nginx " "backend"
+  local nginx_ip
+  nginx_ip=$(cd 2_southbound/1_backend && terraform output -json | jq -r .backend_ip.value)
+  info "Stage 2.3: Deploying Nginx Backend API Proxy with IP : $nginx_ip"
+  (
+    cd 2_southbound/2_apiproxy
+    terraform init
+    TF_VAR_project_id=$PROJECT_ID TF_VAR_nginx_ip=$nginx_ip terraform apply -auto-approve
+    bash deploy-apiproxy.sh
   )
 }
 
@@ -304,6 +317,7 @@ elif [ "$ACTION" == "apply" ]; then
     set_fwd_proxy) deploy_set_fwd_proxy ;;
     allowlist_mock) allowlist_mock ;;
     allowlist_nginx) allowlist_nginx ;;
+    deploy_backend_proxy) deploy_backend_proxy;;
     all)
       deploy_prerun
       deploy_psc
