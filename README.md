@@ -61,7 +61,7 @@ The `run.sh` script is the recommended way to apply and destroy the infrastructu
     ```
 
 2.  **Run the script:**
-    The script requires your Google Cloud Project ID and the desired action (`--apply` or `--destroy`) and stage.
+    The script requires your Google Cloud Project ID and the desired action (`--apply`, `--destroy` or `--client`) and stage.
 
     **To apply all stages:**
     ```sh
@@ -70,12 +70,17 @@ The `run.sh` script is the recommended way to apply and destroy the infrastructu
 
     **To apply a specific stage:**
     ```sh
-    ./run.sh --project YOUR_PROJECT_ID --apply [prerun|psc|mig|ilb|swp|backend]
+    ./run.sh --project YOUR_PROJECT_ID --apply [prerun|psc|mig|ilb|swp|backend|set_fwd_proxy]
     ```
 
     For example, to only deploy the Apigee X instance:
     ```sh
     ./run.sh --project YOUR_PROJECT_ID --apply prerun
+    ```
+
+    **To SSH into the client VM and test connectivity:**
+    ```sh
+    ./run.sh --project YOUR_PROJECT_ID --client [access|access_test_psc|access_test_mig|access_test_lb]
     ```
 
 ## Cleanup
@@ -89,6 +94,6 @@ To destroy the resources, use the `--destroy` flag with the `run.sh` script. You
 
 **To destroy a specific stage:**
 ```sh
-./run.sh --project YOUR_PROJECT_ID --destroy [ilb|mig|psc|prerun]
+./run.sh --project YOUR_PROJECT_ID --destroy [backend|swp|ilb|mig|psc|prerun]
 ```
 The script will handle the reverse order of destruction automatically.
