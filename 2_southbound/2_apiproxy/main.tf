@@ -44,6 +44,7 @@ data "archive_file" "api_proxy" {
   source_dir       = "${path.module}/api_proxy"
   output_path      = "${path.module}/${var.nginx_api_proxy_name}.zip"
   output_file_mode = "0644"
+  depends_on       = [local_file.update_apiproxy_target]
 }
 
 resource "google_apigee_api" "api_proxy" {
