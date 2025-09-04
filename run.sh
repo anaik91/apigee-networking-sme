@@ -28,10 +28,12 @@ usage() {
   echo "Arguments:"
   echo "  --project <PROJECT_ID>    : Your Google Cloud Project ID (Required)."
   echo "  --client <stage>          : Client access stages."
+  echo "  --plan <stage>            : Plan the specified stage."
   echo "  --apply <stage>           : Apply the specified stage."
   echo "  --destroy <stage>         : Destroy the specified stage."
   echo " "
   echo "Stages for client: [access, access_test_psc, access_test_mig, access_test_lb]"
+  echo "Stages for apply: [prerun, psc, mig, ilb, swp, backend, set_fwd_proxy, allowlist_mock, allowlist_nginx, deploy_backend_proxy, all]"
   echo "Stages for apply: [prerun, psc, mig, ilb, swp, backend, set_fwd_proxy, allowlist_mock, allowlist_nginx, deploy_backend_proxy, all]"
   echo "Stages for destroy: [prerun, psc, mig, ilb, swp, backend, deploy_backend_proxy, all]"
   echo " "
@@ -65,7 +67,12 @@ run_terraform() {
     cd "$dir"
     terraform init > /dev/null || terraform init -upgrade > /dev/null
     # Pass remaining arguments to terraform
-    terraform "$action" -auto-approve "$@"
+    if [ "$action" == "apply" ]
+    then
+      terraform "$action" -auto-approve "$@"
+    else
+      terraform "$action" "$@"
+    fi
   )
 }
 
@@ -91,68 +98,80 @@ run_ssh_curl() {
 # --- Deployment Functions ---
 
 deploy_prerun() {
+  tf_action="$1"
   info "Stage 0: Deploying Pre-run (Apigee Core)"
-  run_terraform "apply" "0_pre_run"
-  (cd 0_pre_run && bash deploy-apiproxy.sh)
+  run_terraform "$tf_action" "0_pre_run"
+  if [ "$action" == "apply" ]
+    then
+    (cd 0_pre_run && bash deploy-apiproxy.sh)
+  fi
 }
 
 deploy_psc() {
+  tf_action="$1"
   check_dependency "0_pre_run" "Pre-run" "prerun"
   info "Stage 1.0: Deploying Northbound PSC Endpoint"
   local apigee_sa
   apigee_sa=$(get_tf_output "0_pre_run" "apigee_service_attachments")
-  run_terraform "apply" "1_northbound/0_psc_endpoint" -var="apigee_service_attachments=$apigee_sa"
+  run_terraform "$tf_action" "1_northbound/0_psc_endpoint" -var="apigee_service_attachments=$apigee_sa"
 }
 
 deploy_mig() {
+  tf_action="$1"
   check_dependency "1_northbound/0_psc_endpoint" "PSC Endpoint" "psc"
   info "Stage 1.1: Deploying Northbound MIG"
   local psc_addr
   psc_addr=$(get_tf_output "1_northbound/0_psc_endpoint" "psc_endpoint_address")
-  run_terraform "apply" "1_northbound/1_mig" -var="psc_endpoint_address=$psc_addr"
+  run_terraform "$tf_action" "1_northbound/1_mig" -var="psc_endpoint_address=$psc_addr"
 }
 
 deploy_ilb() {
+  tf_action="$1"
   check_dependency "1_northbound/1_mig" "MIG" "mig"
   info "Stage 1.2: Deploying Northbound Load Balancer"
   local instance_group
   instance_group=$(get_tf_output "1_northbound/1_mig" "instance_group")
-  run_terraform "apply" "1_northbound/2_load_balancer" -var="instance_group=$instance_group"
+  run_terraform "$tf_action" "1_northbound/2_load_balancer" -var="instance_group=$instance_group"
 }
 
 deploy_swp() {
+  tf_action="$1"
   check_dependency "1_northbound/2_load_balancer" "LoadBalancer" "ilb"
   info "Stage 2.1: Deploying Secure Web Proxy"
-  run_terraform "apply" "2_southbound/0_swp"
+  run_terraform "$tf_action" "2_southbound/0_swp"
 }
 
 deploy_backend() {
+  tf_action="$1"
   check_dependency "2_southbound/0_swp" "SWP" "swp"
   info "Stage 2.2: Deploying Sample Nginx Backend"
-  run_terraform "apply" "2_southbound/1_backend"
+  run_terraform "$tf_action" "2_southbound/1_backend"
 }
 
 deploy_set_fwd_proxy() {
+  tf_action="$1"
   check_dependency "2_southbound/0_swp" "SWP" "swp"
   local fwd_proxy_url
   fwd_proxy_url=$(get_tf_output "2_southbound/0_swp" "forward_proxy_url" | jq -r .)
   info "Stage 2: Set Forward Proxy to $fwd_proxy_url"
-  run_terraform "apply" "0_pre_run" -var="forward_proxy_url=$fwd_proxy_url"
+  run_terraform "$tf_action" "0_pre_run" -var="forward_proxy_url=$fwd_proxy_url"
 }
 
 update_swp_allowlist() {
+  tf_action="$1"
   check_dependency "2_southbound/0_swp" "SWP" "swp"
-  local hosts_json="$1"
+  local hosts_json="$2"
   info "Stage: Updating SWP allowlist with hosts: $hosts_json"
-  run_terraform "apply" "2_southbound/0_swp" -var="swp_allowlist_hosts=$hosts_json"
+  run_terraform "$tf_action" "2_southbound/0_swp" -var="swp_allowlist_hosts=$hosts_json"
 }
 
 deploy_backend_proxy() {
+  tf_action="$1"
   check_dependency "2_southbound/1_backend" "Nginx" "backend"
   local nginx_ip
   nginx_ip=$(get_tf_output "2_southbound/1_backend" "backend_ip" | jq -r .)
   info "Stage 2.3: Deploying Nginx Backend API Proxy with IP: $nginx_ip"
-  run_terraform "apply" "2_southbound/2_apiproxy" -var="nginx_ip=$nginx_ip"
+  run_terraform "$tf_action" "2_southbound/2_apiproxy" -var="nginx_ip=$nginx_ip"
   (cd 2_southbound/2_apiproxy && bash deploy-apiproxy.sh)
 }
 
@@ -270,6 +289,7 @@ while [[ $# -gt 0 ]]; do
   case $key in
     --project) PROJECT_ID="$2"; shift; shift;;
     --client) ACTION="client"; STAGE="$2"; shift; shift;;
+    --plan) ACTION="plan"; STAGE="$2"; shift; shift;;
     --apply) ACTION="apply"; STAGE="$2"; shift; shift;;
     --destroy) ACTION="destroy"; STAGE="$2"; shift; shift;;
     *) usage;;
@@ -295,29 +315,57 @@ case $ACTION in
     esac
     info "Client Action Complete!"
     ;;
-  apply)
+  plan)
     case $STAGE in
-      prerun) deploy_prerun ;;
-      psc) deploy_psc ;;
-      mig) deploy_mig ;;
-      ilb) deploy_ilb ;;
-      swp) deploy_swp ;;
-      backend) deploy_backend ;;
-      set_fwd_proxy) deploy_set_fwd_proxy ;;
-      allowlist_mock) update_swp_allowlist '["mocktarget.apigee.net"]' ;;
+      prerun) deploy_prerun "plan" ;;
+      psc) deploy_psc "plan" ;;
+      mig) deploy_mig "plan" ;;
+      ilb) deploy_ilb "plan" ;;
+      swp) deploy_swp "plan" ;;
+      backend) deploy_backend "plan" ;;
+      set_fwd_proxy) deploy_set_fwd_proxy  "plan" ;;
+      allowlist_mock) update_swp_allowlist "plan" '["mocktarget.apigee.net"]' ;;
       allowlist_nginx)
         nginx_ip=$(get_tf_output "2_southbound/1_backend" "backend_ip" | jq -r .)
-        update_swp_allowlist "[\"mocktarget.apigee.net\",\"$nginx_ip\"]"
+        update_swp_allowlist "plan" "[\"mocktarget.apigee.net\",\"$nginx_ip\"]"
         ;;
-      deploy_backend_proxy) deploy_backend_proxy ;;
+      deploy_backend_proxy) deploy_backend_proxy "plan" ;;
       all)
-        deploy_prerun
-        deploy_psc
-        deploy_mig
-        deploy_ilb
-        deploy_swp
-        deploy_backend
-        deploy_set_fwd_proxy
+        deploy_prerun "plan" 
+        deploy_psc "plan"
+        deploy_mig "plan"
+        deploy_ilb "plan"
+        deploy_swp "plan"
+        deploy_backend "plan"
+        deploy_set_fwd_proxy "plan"
+        ;;
+      *) usage ;;
+    esac
+    info "Plan Complete!"
+    ;;
+  apply)
+    case $STAGE in
+      prerun) deploy_prerun "apply" ;;
+      psc) deploy_psc "apply" ;;
+      mig) deploy_mig "apply" ;;
+      ilb) deploy_ilb "apply" ;;
+      swp) deploy_swp "apply" ;;
+      backend) deploy_backend "apply" ;;
+      set_fwd_proxy) deploy_set_fwd_proxy  "apply" ;;
+      allowlist_mock) update_swp_allowlist "apply" '["mocktarget.apigee.net"]' ;;
+      allowlist_nginx)
+        nginx_ip=$(get_tf_output "2_southbound/1_backend" "backend_ip" | jq -r .)
+        update_swp_allowlist "apply" "[\"mocktarget.apigee.net\",\"$nginx_ip\"]"
+        ;;
+      deploy_backend_proxy) deploy_backend_proxy "apply" ;;
+      all)
+        deploy_prerun "apply" 
+        deploy_psc "apply"
+        deploy_mig "apply"
+        deploy_ilb "apply"
+        deploy_swp "apply"
+        deploy_backend "apply"
+        deploy_set_fwd_proxy "apply"
         ;;
       *) usage ;;
     esac
