@@ -8,6 +8,12 @@ PROJECT_ID=""
 ACTION=""
 STAGE=""
 
+# --- Global Configuration ---
+GCP_ZONE="europe-west2-b"
+GCP_REGION="europe-west2"
+CLIENT_VM_NAME="apigee-client-vm"
+TEST_HOSTNAME="test.api.example.com"
+
 # --- Helper Functions ---
 info() {
   echo " "
@@ -38,7 +44,6 @@ check_dependency() {
   local stage_name="$2"
   local stage_flag="$3"
 
-  # Check if the state file for the dependency exists and is not empty
   if [ ! -f "${stage_dir}/terraform.tfstate" ] || [ ! -s "${stage_dir}/terraform.tfstate" ]; then
     echo " "
     echo "ERROR: Prerequisite stage '${stage_name}' has not been successfully applied." >&2
@@ -48,232 +53,149 @@ check_dependency() {
   fi
 }
 
-# --- Deployment Functions (in order of execution) ---
+# --- Reusable Terraform & Cloud Functions ---
 
-gcloud_ssh() {
-  check_dependency "1_northbound/0_psc_endpoint" "PSC Endpoint" "psc"
-  info "Stage 0: SSH ing into the client VM"
-  (
-    gcloud compute ssh --zone "europe-west2-b" "apigee-client-vm" --tunnel-through-iap --project "$PROJECT_ID"
-  )
-}
-
-gcloud_ssh_curl_psc() {
-  check_dependency "1_northbound/0_psc_endpoint" "PSC Endpoint" "psc"
-
-  local psc_endpoint_address
-  psc_endpoint_address=$(cd 1_northbound/0_psc_endpoint && terraform output -json | jq -r '.psc_endpoint_address.value."europe-west2".address')
-
-  info "Stage 0: SSH ing into the client VM and sending a curl request to PSC IP: $psc_endpoint_address"
-  ( 
-    gcloud compute ssh --zone "europe-west2-b" "apigee-client-vm" --tunnel-through-iap --project "$PROJECT_ID" -- \
-    curl --connect-to "test.api.example.com:443:${psc_endpoint_address}" https://test.api.example.com/mock -k -v
-  )
-}
-
-gcloud_ssh_curl_mig() {
-  check_dependency "1_northbound/1_mig" "MIG" "mig"
-  mig_name=$(cd 1_northbound/1_mig && terraform output -json | jq -r '.instance_group.value."europe-west2".instance_group' | xargs -I {} basename {})
-  local instance_names
-  instance_names=$(gcloud compute instance-groups managed list-instances "$mig_name" \
-    --project="$PROJECT_ID" \
-    --region="europe-west2" \
-    --format="value(instance.basename())")
+run_terraform() {
+  local action="$1"
+  local dir="$2"
+  shift 2
   
-  # Exit if no instances are found in the MIG
-  if [ -z "$instance_names" ]; then
-    echo "🟡 No instances found in MIG '$mig_name' in project '$PROJECT_ID'."
-    return 0
-  fi
-
-  local instance_filter
-  instance_filter=$(echo "$instance_names" | tr '\n' ' ')
-
-  echo "✅ Private IPs for instances in MIG '$mig_name':"
-  for ip in $(gcloud compute instances list \
-    --project="$PROJECT_ID" \
-    --filter="name:($instance_filter)" \
-    --format="value(networkInterfaces[0].networkIP)")
-  do 
-    info "Stage 0: SSH ing into the client VM and sending a curl request to IP: $ip"
-    (
-      gcloud compute ssh --zone "europe-west2-b" "apigee-client-vm" --tunnel-through-iap --project "$PROJECT_ID" -- \
-      curl --connect-to "test.api.example.com:443:$ip" https://test.api.example.com/mock -k -v
-    )
-  done
-}
-
-gcloud_ssh_curl_lb() {
-  check_dependency "1_northbound/2_load_balancer" "LoadBalancer" "lb"
-
-  local lb_address
-  lb_address=$(cd 1_northbound/2_load_balancer && terraform output -json | jq -r '.address.value.[0]')
-
-  info "Stage 0: SSH ing into the client VM and sending a curl request to IP: $lb_address"
+  info "Terraform $action in $dir"
   (
-    gcloud compute ssh --zone "europe-west2-b" "apigee-client-vm" --tunnel-through-iap --project "$PROJECT_ID" -- \
-    curl --connect-to "test.api.example.com:443:$lb_address" https://test.api.example.com/mock -k -v
+    cd "$dir"
+    terraform init -upgrade > /dev/null
+    # Pass remaining arguments to terraform
+    terraform "$action" -auto-approve "$@"
   )
 }
+
+get_tf_output() {
+  local dir="$1"
+  local output_name="$2"
+  (cd "$dir" && terraform output -json "$output_name" | jq -c .)
+}
+
+run_ssh_curl() {
+  local ip_address="$1"
+  local hostname="$2"
+  info "SSH into client VM and curl $hostname via IP: $ip_address"
+  gcloud compute ssh --zone "$GCP_ZONE" "$CLIENT_VM_NAME" --tunnel-through-iap --project "$PROJECT_ID" -- \
+    "curl --connect-to \"$hostname:443:$ip_address\" https://$hostname/mock -k -v"
+}
+
+# --- Deployment Functions ---
 
 deploy_prerun() {
   info "Stage 0: Deploying Pre-run (Apigee Core)"
-  ( # Run in a subshell to avoid changing the script's directory
-    cd 0_pre_run
-    terraform init
-    TF_VAR_project_id=$PROJECT_ID terraform apply -auto-approve
-    bash deploy-apiproxy.sh
-  )
-}
-
-deploy_set_fwd_proxy() {
-  local fwd_proxy_url
-  fwd_proxy_url=$(cd 2_southbound/0_swp && terraform output -json | jq -r .forward_proxy_url.value)
-
-  info "Stage 2: Set Forward Proxy as $fwd_proxy_url"
-  ( # Run in a subshell to avoid changing the script's directory
-    cd 0_pre_run
-    terraform init
-    TF_VAR_project_id=$PROJECT_ID TF_VAR_forward_proxy_url=$fwd_proxy_url terraform apply -auto-approve
-  )
+  run_terraform "apply" "0_pre_run"
+  (cd 0_pre_run && bash deploy-apiproxy.sh)
 }
 
 deploy_psc() {
   check_dependency "0_pre_run" "Pre-run" "prerun"
   info "Stage 1.0: Deploying Northbound PSC Endpoint"
-  
-  # Read output directly from the dependency's state
   local apigee_sa
-  apigee_sa=$(cd 0_pre_run && terraform output -json | jq -c .apigee_service_attachments.value)
-
-  (
-    cd 1_northbound/0_psc_endpoint
-    terraform init
-    # Pass the output from the previous step as a TF_VAR for this command
-    TF_VAR_apigee_service_attachments=$apigee_sa TF_VAR_project_id=$PROJECT_ID terraform apply -auto-approve
-  )
+  apigee_sa=$(get_tf_output "0_pre_run" "apigee_service_attachments")
+  run_terraform "apply" "1_northbound/0_psc_endpoint" -var="apigee_service_attachments=$apigee_sa"
 }
 
 deploy_mig() {
   check_dependency "1_northbound/0_psc_endpoint" "PSC Endpoint" "psc"
   info "Stage 1.1: Deploying Northbound MIG"
-
-  local psc_endpoint_address
-  psc_endpoint_address=$(cd 1_northbound/0_psc_endpoint && terraform output -json | jq -c .psc_endpoint_address.value)
-  (
-    cd 1_northbound/1_mig
-    terraform init
-    TF_VAR_psc_endpoint_address=$psc_endpoint_address TF_VAR_project_id=$PROJECT_ID terraform apply -auto-approve
-  )
+  local psc_addr
+  psc_addr=$(get_tf_output "1_northbound/0_psc_endpoint" "psc_endpoint_address")
+  run_terraform "apply" "1_northbound/1_mig" -var="psc_endpoint_address=$psc_addr"
 }
 
 deploy_ilb() {
   check_dependency "1_northbound/1_mig" "MIG" "mig"
   info "Stage 1.2: Deploying Northbound Load Balancer"
-
   local instance_group
-  instance_group=$(cd 1_northbound/1_mig && terraform output -json | jq -c .instance_group.value)
-  
-  (
-    cd 1_northbound/2_load_balancer
-    terraform init
-    TF_VAR_instance_group=$instance_group TF_VAR_project_id=$PROJECT_ID terraform apply -auto-approve
-  )
+  instance_group=$(get_tf_output "1_northbound/1_mig" "instance_group")
+  run_terraform "apply" "1_northbound/2_load_balancer" -var="instance_group=$instance_group"
 }
 
 deploy_swp() {
-  check_dependency "1_northbound/2_load_balancer" "LoadBalancer" "lb"
+  check_dependency "1_northbound/2_load_balancer" "LoadBalancer" "ilb"
   info "Stage 2.1: Deploying Secure Web Proxy"
-  (
-    cd 2_southbound/0_swp
-    terraform init
-    TF_VAR_project_id=$PROJECT_ID terraform apply -auto-approve
-  )
+  run_terraform "apply" "2_southbound/0_swp"
 }
 
 deploy_backend() {
   check_dependency "2_southbound/0_swp" "SWP" "swp"
   info "Stage 2.2: Deploying Sample Nginx Backend"
-  (
-    cd 2_southbound/1_backend
-    terraform init
-    TF_VAR_project_id=$PROJECT_ID terraform apply -auto-approve
-  )
+  run_terraform "apply" "2_southbound/1_backend"
 }
 
-allowlist_mock() {
+deploy_set_fwd_proxy() {
   check_dependency "2_southbound/0_swp" "SWP" "swp"
-  info "Stage : Allowlisting mocktarget.apigee.net"
-  (
-    cd 2_southbound/0_swp
-    terraform init
-    TF_VAR_project_id=$PROJECT_ID TF_VAR_swp_allowlist_hosts="[\"mocktarget.apigee.net\"]" terraform apply -auto-approve
-  )
+  local fwd_proxy_url
+  fwd_proxy_url=$(get_tf_output "2_southbound/0_swp" "forward_proxy_url" | jq -r .)
+  info "Stage 2: Set Forward Proxy to $fwd_proxy_url"
+  run_terraform "apply" "0_pre_run" -var="forward_proxy_url=$fwd_proxy_url"
 }
 
-allowlist_nginx() {
+update_swp_allowlist() {
   check_dependency "2_southbound/0_swp" "SWP" "swp"
-
-  local nginx_ip
-  nginx_ip=$(cd 2_southbound/1_backend && terraform output -json | jq -r .backend_ip.value)
-  info "Stage : Allowlisting Nginx IP: ${nginx_ip}"
-  (
-    cd 2_southbound/0_swp
-    terraform init
-    TF_VAR_project_id=$PROJECT_ID TF_VAR_swp_allowlist_hosts="[\"mocktarget.apigee.net\",\"$nginx_ip\"]" terraform apply -auto-approve
-  )
+  local hosts_json="$1"
+  info "Stage: Updating SWP allowlist with hosts: $hosts_json"
+  run_terraform "apply" "2_southbound/0_swp" -var="swp_allowlist_hosts=$hosts_json"
 }
 
 deploy_backend_proxy() {
-  check_dependency "2_southbound/1_backend" "Nginx " "backend"
+  check_dependency "2_southbound/1_backend" "Nginx" "backend"
   local nginx_ip
-  nginx_ip=$(cd 2_southbound/1_backend && terraform output -json | jq -r .backend_ip.value)
-  info "Stage 2.3: Deploying Nginx Backend API Proxy with IP : $nginx_ip"
-  (
-    cd 2_southbound/2_apiproxy
-    terraform init
-    TF_VAR_project_id=$PROJECT_ID TF_VAR_nginx_ip=$nginx_ip terraform apply -auto-approve
-    bash deploy-apiproxy.sh
-  )
+  nginx_ip=$(get_tf_output "2_southbound/1_backend" "backend_ip" | jq -r .)
+  info "Stage 2.3: Deploying Nginx Backend API Proxy with IP: $nginx_ip"
+  run_terraform "apply" "2_southbound/2_apiproxy" -var="nginx_ip=$nginx_ip"
+  (cd 2_southbound/2_apiproxy && bash deploy-apiproxy.sh)
 }
 
+# --- Client Access Functions ---
 
-# --- Destroy Functions (in REVERSE order of execution) ---
-
-destroy_backend() {
-  info "Destroying Sample Nginx Backend"
-  (cd 2_southbound/1_backend && terraform destroy -auto-approve)
+gcloud_ssh() {
+  check_dependency "1_northbound/0_psc_endpoint" "PSC Endpoint" "psc"
+  info "SSH into the client VM"
+  gcloud compute ssh --zone "$GCP_ZONE" "$CLIENT_VM_NAME" --tunnel-through-iap --project "$PROJECT_ID"
 }
 
-destroy_swp() {
-  info "Destroying Secure Web Proxy"
-  (cd 2_southbound/0_swp && terraform destroy -auto-approve)
+gcloud_ssh_curl_psc() {
+  check_dependency "1_northbound/0_psc_endpoint" "PSC Endpoint" "psc"
+  local psc_ip
+  psc_ip=$(get_tf_output "1_northbound/0_psc_endpoint" "psc_endpoint_address" | jq -r ".\"$GCP_REGION\".address")
+  run_ssh_curl "$psc_ip" "$TEST_HOSTNAME"
 }
 
-destroy_ilb() {
-  info "Destroying Northbound Load Balancer"
-  (cd 1_northbound/2_load_balancer && terraform destroy -auto-approve)
+gcloud_ssh_curl_mig() {
+  check_dependency "1_northbound/1_mig" "MIG" "mig"
+  local mig_name
+  mig_name=$(get_tf_output "1_northbound/1_mig" "instance_group" | jq -r ".\"$GCP_REGION\".instance_group" | xargs -I {} basename {})
+  
+  local instance_ips
+  instance_ips=$(gcloud compute instances list \
+    --project="$PROJECT_ID" \
+    --filter="name~^$mig_name" \
+    --format="value(networkInterfaces[0].networkIP)")
+
+  if [ -z "$instance_ips" ]; then
+    echo "🟡 No instances found in MIG '$mig_name'."
+    return 0
+  fi
+
+  for ip in $instance_ips; do
+    run_ssh_curl "$ip" "$TEST_HOSTNAME"
+  done
 }
 
-destroy_mig() {
-  info "Destroying Northbound MIG"
-  (cd 1_northbound/1_mig && terraform destroy -auto-approve)
+gcloud_ssh_curl_lb() {
+  check_dependency "1_northbound/2_load_balancer" "LoadBalancer" "ilb"
+  local lb_ip
+  lb_ip=$(get_tf_output "1_northbound/2_load_balancer" "address" | jq -r ".[0]")
+  run_ssh_curl "$lb_ip" "$TEST_HOSTNAME"
 }
-
-destroy_psc() {
-  info "Destroying Northbound PSC Endpoint"
-  (cd 1_northbound/0_psc_endpoint && terraform destroy -auto-approve)
-}
-
-destroy_prerun() {
-  info "Destroying Pre-run (Apigee Core)"
-  (cd 0_pre_run && terraform destroy -auto-approve)
-}
-
 
 # --- Main Execution Logic ---
 
-# Parse command-line arguments
 while [[ $# -gt 0 ]]; do
   key="$1"
   case $key in
@@ -285,70 +207,70 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Validate inputs
 if [ -z "$PROJECT_ID" ] || [ -z "$ACTION" ] || [ -z "$STAGE" ]; then
   echo "Error: Missing required arguments." >&2
   usage
 fi
 
-# Export the Project ID so Terraform can access it in all stages
 export TF_VAR_project_id=$PROJECT_ID
 info "Using Project ID: $PROJECT_ID"
 
-# Execute the requested action and stage
-# Execute the requested action and stage
-if [ "$ACTION" == "client" ]; then
-  case $STAGE in
-    access) gcloud_ssh ;;
-    access_test_psc)    gcloud_ssh_curl_psc ;;
-    access_test_mig)    gcloud_ssh_curl_mig ;;
-    access_test_lb)    gcloud_ssh_curl_lb ;;
-    *) usage ;;
-  esac
-  info "Client Action Complete!"
-
-elif [ "$ACTION" == "apply" ]; then
-  case $STAGE in
-    prerun) deploy_prerun ;;
-    psc)    deploy_psc ;;
-    mig)    deploy_mig ;;
-    ilb)     deploy_ilb ;;
-    swp)     deploy_swp ;;
-    backend)     deploy_backend ;;
-    set_fwd_proxy) deploy_set_fwd_proxy ;;
-    allowlist_mock) allowlist_mock ;;
-    allowlist_nginx) allowlist_nginx ;;
-    deploy_backend_proxy) deploy_backend_proxy;;
-    all)
-      deploy_prerun
-      deploy_psc
-      deploy_mig
-      deploy_ilb
-      deploy_swp
-      deploy_backend
-      deploy_set_fwd_proxy
-      ;;
-    *) usage ;;
-  esac
-  info "Apply Complete!"
-
-elif [ "$ACTION" == "destroy" ]; then
-  case $STAGE in
-    backend) destroy_backend ;;
-    swp)     destroy_swp ;;
-    ilb)     destroy_ilb ;;
-    mig)    destroy_mig ;;
-    psc)    destroy_psc ;;
-    prerun) destroy_prerun ;;
-    all)
-      destroy_backend
-      destroy_swp
-      destroy_ilb
-      destroy_mig
-      destroy_psc
-      destroy_prerun
-      ;;
-    *) usage ;;
-  esac
-  info "Destroy Complete!"
-fi
+case $ACTION in
+  client)
+    case $STAGE in
+      access) gcloud_ssh ;;
+      access_test_psc) gcloud_ssh_curl_psc ;;
+      access_test_mig) gcloud_ssh_curl_mig ;;
+      access_test_lb) gcloud_ssh_curl_lb ;;
+      *) usage ;;
+    esac
+    info "Client Action Complete!"
+    ;;
+  apply)
+    case $STAGE in
+      prerun) deploy_prerun ;;
+      psc) deploy_psc ;;
+      mig) deploy_mig ;;
+      ilb) deploy_ilb ;;
+      swp) deploy_swp ;;
+      backend) deploy_backend ;;
+      set_fwd_proxy) deploy_set_fwd_proxy ;;
+      allowlist_mock) update_swp_allowlist '["mocktarget.apigee.net"]' ;;
+      allowlist_nginx)
+        nginx_ip=$(get_tf_output "2_southbound/1_backend" "backend_ip" | jq -r .)
+        update_swp_allowlist "[\"mocktarget.apigee.net\",\"$nginx_ip\"]"
+        ;;
+      deploy_backend_proxy) deploy_backend_proxy ;;
+      all)
+        deploy_prerun
+        deploy_psc
+        deploy_mig
+        deploy_ilb
+        deploy_swp
+        deploy_backend
+        deploy_set_fwd_proxy
+        ;;
+      *) usage ;;
+    esac
+    info "Apply Complete!"
+    ;;
+  destroy)
+    # Define destroy stages in reverse order of application
+    destroy_stages=(backend swp ilb mig psc prerun)
+    dirs=(2_southbound/1_backend 2_southbound/0_swp 1_northbound/2_load_balancer 1_northbound/1_mig 1_northbound/0_psc_endpoint 0_pre_run)
+    
+    found=false
+    for i in "${!destroy_stages[@]}"; do
+      if [ "$STAGE" == "all" ] || [ "$STAGE" == "${destroy_stages[$i]}" ]; then
+        found=true
+      fi
+      if [ "$found" == "true" ]; then
+        run_terraform "destroy" "${dirs[$i]}"
+      fi
+    done
+    if [ "$found" == "false" ]; then
+      usage
+    fi
+    info "Destroy Complete!"
+    ;;
+esac
