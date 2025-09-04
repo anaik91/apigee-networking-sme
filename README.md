@@ -5,10 +5,12 @@ This repository contains Terraform code to demonstrate common networking pattern
 ## Prerequisites
 
 Before you begin, ensure you have the following installed and configured:
-- [Terraform](https://learn.hashicorp.com/tutorials/terraform/install-cli) (v1.0 or later)
+- [Terraform](https://learn.hashicorp.com/tutorials/terraform/install-cli) (v1.13.1)
 - [Google Cloud SDK (gcloud)](https://cloud.google.com/sdk/docs/install)
 - An active Google Cloud project with billing enabled.
 - Authenticated to gcloud with a user or service account having sufficient permissions (e.g., `roles/owner` or a combination of `roles/apigee.admin`, `roles/compute.admin`, `roles/iam.serviceAccountUser`).
+- Python 3
+- TOML library for Python (`pip install toml`)
 
 ## Execution Flow
 
@@ -16,11 +18,15 @@ The Terraform configurations are designed to be run in a specific order. Each nu
 
 ```mermaid
 graph TD
-    U1[User Invoke run.sh] --> A
+    U1[User Invoke run.sh] --> A0
+    A0[Generate tfvars using python]
+    A0 --> A
     subgraph "Terraform Execution Flow"
         A[0. Pre-Run: Apigee X Core] --> B[1. Northbound: External Access];
         B --> C[2. Southbound: Backend Connectivity];
     end
+    style U1 fill:#ADD8E6,stroke:#333,stroke-width:2px
+    style A0 fill:#90EE90,stroke:#333,stroke-width:2px
     style A fill:#f9f,stroke:#333,stroke-width:2px
     style B fill:#ccf,stroke:#333,stroke-width:2px
     style C fill:#cfc,stroke:#333,stroke-width:2px
@@ -62,7 +68,14 @@ The `run.sh` script is the recommended way to apply and destroy the infrastructu
     cd apigee-networking-sme
     ```
 
-2.  **Run the script:**
+2.  **Generate `terraform.tfvars`:**
+    The `generate_tfvars.py` script reads the `defaults.toml` file and creates the necessary `terraform.tfvars` for each stage.
+
+    ```sh
+    python3 generate_tfvars.py
+    ```
+
+3.  **Run the script:**
     The script requires your Google Cloud Project ID and the desired action (`--plan`, `--apply`, `--destroy` or `--client`) and stage. The script will handle the correct order of execution and destruction automatically.
 
     **Example:**
