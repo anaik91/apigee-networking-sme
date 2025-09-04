@@ -1,0 +1,58 @@
+# Default values for Terraform variables from various subdirectories.
+
+# Common variables shared across multiple configurations
+[common]
+vpc_name = "apigee-sme"
+region = "europe-west2"
+vpc_subnets = "apigee-exposure-1"
+psc_subnets_string = "psc-subnet-1" # Renamed to avoid conflict with list type
+
+[0_pre_run]
+ax_region = "europe-west2"
+mock_api_proxy_name = "mock"
+forward_proxy_url = ""
+
+[0_pre_run.apigee_instances]
+euw2-instance = { region = "europe-west2", environments = ["test1", "test2"] }
+
+[0_pre_run.apigee_envgroups]
+test = { hostnames = ["test.api.example.com"] }
+
+[0_pre_run.apigee_environments]
+test1 = { display_name = "Test 1", description = "Environment created by apigee/terraform-modules", envgroups = ["test"] }
+test2 = { display_name = "Test 2", description = "Environment created by apigee/terraform-modules", envgroups = ["test"] }
+
+["1_northbound.0_psc_endpoint"]
+vpc_name = "apigee-sme"
+exposure_subnets = [
+  { name = "apigee-exposure-1", ip_cidr_range = "10.100.0.0/24", region = "europe-west2", instance = "euw1-instance" , secondary_ip_range = ''},
+]
+psc_subnets = [
+  { name = "psc-subnet-1", ip_cidr_range = "10.100.255.240/28", region = "europe-west2", instance = "euw1-instance" , secondary_ip_range = ''},
+]
+# apigee_service_attachments = {} # Required variable with no default.
+
+["1_northbound.1_mig"]
+# psc_endpoint_address = {} # Required variable with no default.
+
+["1_northbound.2_load_balancer"]
+vpc_name = "apigee-sme"
+# instance_group = {} # Required variable with no default.
+
+["2_southbound.0_swp"]
+region = "europe-west2"
+vpc_name = "apigee-sme"
+vpc_subnets = "apigee-exposure-1"
+psc_subnets = "psc-subnet-1"
+swp_allowlist_hosts = []
+
+["2_southbound.1_backend"]
+region = "europe-west2"
+vpc_name = "apigee-sme"
+vpc_subnets = "apigee-exposure-1"
+psc_subnets = "psc-subnet-1"
+
+["2_southbound.2_apiproxy"]
+deploy_env = "test1"
+nginx_api_proxy_name = "nginx"
+# nginx_ip = "" # Required variable with no default.
