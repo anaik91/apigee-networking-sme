@@ -63,7 +63,7 @@ The `run.sh` script is the recommended way to apply and destroy the infrastructu
     ```
 
 2.  **Run the script:**
-    The script requires your Google Cloud Project ID and the desired action (`--apply`, `--destroy` or `--client`) and stage. The script will handle the correct order of execution and destruction automatically.
+    The script requires your Google Cloud Project ID and the desired action (`--plan`, `--apply`, `--destroy` or `--client`) and stage. The script will handle the correct order of execution and destruction automatically.
 
     **Example:**
     ```sh
@@ -74,6 +74,17 @@ The `run.sh` script is the recommended way to apply and destroy the infrastructu
 
 | Action      | Stage                  | Description                                                 |
 | :---------- | :--------------------- | :---------------------------------------------------------- |
+| **`--plan`**    | `prerun`               | Plans the deployment of the core Apigee X instance.         |
+|             | `psc`                  | Plans the creation of a Private Service Connect (PSC) endpoint. |
+|             | `mig`                  | Plans the creation of a Managed Instance Group (MIG).       |
+|             | `ilb`                  | Plans the deployment of an Internal Load Balancer.          |
+|             | `swp`                  | Plans the deployment of a Secure Web Proxy.                 |
+|             | `backend`              | Plans the deployment of a sample Nginx backend.             |
+|             | `set_fwd_proxy`        | Plans the configuration of Apigee to use the SWP.           |
+|             | `allowlist_mock`       | Plans adding `mocktarget.apigee.net` to the SWP allowlist.  |
+|             | `allowlist_nginx`      | Plans adding the Nginx backend IP to the SWP allowlist.     |
+|             | `deploy_backend_proxy` | Plans the deployment of an API proxy for the Nginx backend. |
+|             | `all`                  | Plans all stages sequentially.                              |
 | **`--apply`**   | `prerun`               | Deploys the core Apigee X instance and network foundation.  |
 |             | `psc`                  | Creates a Private Service Connect (PSC) endpoint.           |
 |             | `mig`                  | Creates a Managed Instance Group (MIG) as a proxy layer.    |
@@ -84,8 +95,9 @@ The `run.sh` script is the recommended way to apply and destroy the infrastructu
 |             | `allowlist_mock`       | Adds `mocktarget.apigee.net` to the SWP allowlist.          |
 |             | `allowlist_nginx`      | Adds the Nginx backend IP to the SWP allowlist.             |
 |             | `deploy_backend_proxy` | Deploys an API proxy that connects to the Nginx backend.    |
-|             | `all`                  | Applies all stages sequentially from `prerun` to `set_fwd_proxy`. |
-| **`--destroy`** | `backend`              | Destroys the sample Nginx backend.                          |
+|             | `all`                  | Applies all stages sequentially.                            |
+| **`--destroy`** | `deploy_backend_proxy` | Destroys the Nginx backend API proxy.                       |
+|             | `backend`              | Destroys the sample Nginx backend.                          |
 |             | `swp`                  | Destroys the Secure Web Proxy.                              |
 |             | `ilb`                  | Destroys the Internal Load Balancer.                        |
 |             | `mig`                  | Destroys the Managed Instance Group.                        |
