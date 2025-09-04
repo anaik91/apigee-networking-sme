@@ -63,7 +63,7 @@ run_terraform() {
   info "Terraform $action in $dir"
   (
     cd "$dir"
-    terraform init -upgrade > /dev/null
+    terraform init > /dev/null || terraform init -upgrade > /dev/null
     # Pass remaining arguments to terraform
     terraform "$action" -auto-approve "$@"
   )
