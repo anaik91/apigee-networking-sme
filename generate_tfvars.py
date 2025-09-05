@@ -3,6 +3,7 @@ import toml
 import os
 import re
 import json
+import subprocess
 
 def to_hcl(data):
     """Converts a Python object to an HCL string."""
@@ -39,6 +40,17 @@ def get_defined_variables(variables_file_path):
             if match:
                 defined_vars.add(match.group(1))
     return defined_vars
+
+def run_terraform_fmt(directory):
+    """Runs terraform fmt in the specified directory."""
+    try:
+        print(f"Running terraform fmt in {directory}...")
+        subprocess.run(['terraform', 'fmt'], cwd=directory, check=True, capture_output=True, text=True)
+    except FileNotFoundError:
+        print("Error: terraform command not found. Please ensure Terraform is installed and in your PATH.")
+    except subprocess.CalledProcessError as e:
+        print(f"Error running terraform fmt in {directory}:")
+        print(e.stderr)
 
 def generate_tfvars():
     """
@@ -96,6 +108,8 @@ def generate_tfvars():
                         if isinstance(value, list):
                             value[0]['secondary_ip_range'] = None
                     f.write(f"{key} = {to_hcl(value)}\n")
+        
+        run_terraform_fmt(directory)
 
     print("\nFinished generating tfvars files.")
 
