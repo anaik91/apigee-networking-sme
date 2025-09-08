@@ -33,7 +33,7 @@ usage() {
   echo "  --destroy <stage>         : Destroy the specified stage."
   echo " "
   echo "Stages for client: [access, access_test_psc, access_test_mig, access_test_lb]"
-  echo "Stages for apply: [prerun, psc, mig, ilb, swp, backend, set_fwd_proxy, allowlist_mock, allowlist_nginx, deploy_backend_proxy, all]"
+  echo "Stages for plan: [prerun, psc, mig, ilb, swp, backend, set_fwd_proxy, allowlist_mock, allowlist_nginx, deploy_backend_proxy, all]"
   echo "Stages for apply: [prerun, psc, mig, ilb, swp, backend, set_fwd_proxy, allowlist_mock, allowlist_nginx, deploy_backend_proxy, all]"
   echo "Stages for destroy: [prerun, psc, mig, ilb, swp, backend, deploy_backend_proxy, all]"
   echo " "
