@@ -25,11 +25,6 @@ graph TD
         A[0. Pre-Run: Apigee X Core] --> B[1. Northbound: External Access];
         B --> C[2. Southbound: Backend Connectivity];
     end
-    style U1 fill:#ADD8E6,stroke:#333,stroke-width:2px
-    style A0 fill:#90EE90,stroke:#333,stroke-width:2px
-    style A fill:#f9f,stroke:#333,stroke-width:2px
-    style B fill:#ccf,stroke:#333,stroke-width:2px
-    style C fill:#cfc,stroke:#333,stroke-width:2px
 ```
 
 ## Directory Structure
