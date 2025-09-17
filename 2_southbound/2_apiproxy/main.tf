@@ -62,3 +62,16 @@ resource "local_file" "deploy_apiproxy_file" {
   filename        = "${path.module}/deploy-apiproxy.sh"
   file_permission = "0755"
 }
+
+
+resource "null_resource" "deploy_api" {
+  triggers = {
+    always_run = timestamp()
+  }
+
+  provisioner "local-exec" {
+    command = "bash ${path.module}/deploy-apiproxy.sh"
+  }
+
+  depends_on = [google_apigee_api.api_proxy, local_file.deploy_apiproxy_file]
+}

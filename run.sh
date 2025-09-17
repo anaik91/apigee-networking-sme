@@ -172,10 +172,10 @@ deploy_backend_proxy() {
   nginx_ip=$(get_tf_output "2_southbound/1_backend" "backend_ip" | jq -r .)
   info "Stage 2.3: Deploying Nginx Backend API Proxy with IP: $nginx_ip"
   run_terraform "$tf_action" "2_southbound/2_apiproxy" -var="nginx_ip=$nginx_ip"
-  if [ "$action" == "apply" ]
-    then
-    (cd 2_southbound/2_apiproxy && bash deploy-apiproxy.sh)
-  fi
+  # if [ "$action" == "apply" ]
+  #   then
+  #   (cd 2_southbound/2_apiproxy && bash deploy-apiproxy.sh)
+  # fi
 }
 
 # --- Destroy Functions ---
