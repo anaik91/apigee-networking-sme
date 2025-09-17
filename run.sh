@@ -101,10 +101,10 @@ deploy_prerun() {
   tf_action="$1"
   info "Stage 0: Deploying Pre-run (Apigee Core)"
   run_terraform "$tf_action" "0_pre_run"
-  if [ "$action" == "apply" ]
-    then
-    (cd 0_pre_run && bash deploy-apiproxy.sh)
-  fi
+  # if [ "$action" == "apply" ]
+  #   then
+  #   (cd 0_pre_run && bash deploy-apiproxy.sh)
+  # fi
 }
 
 deploy_psc() {
