@@ -91,6 +91,8 @@ resource "null_resource" "deploy_api" {
   provisioner "local-exec" {
     command = "bash ${path.module}/deploy-apiproxy.sh"
   }
+
+  depends_on = [google_apigee_api.api_proxy, local_file.deploy_apiproxy_file]
 }
 
 output "apigee_environments" {
