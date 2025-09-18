@@ -85,6 +85,7 @@ module "ilb-l7" {
   region     = each.key
   backend_service_configs = {
     default = {
+      port_name = "https"
       backends = local.backend_config
     }
   }
