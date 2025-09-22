@@ -50,7 +50,11 @@ module "bridge-template" {
     auto_create = true
     scopes      = ["cloud-platform"]
   }
-
+  shielded_config = {
+    enable_secure_boot          = true
+    enable_vtpm                 = true
+    enable_integrity_monitoring = true
+  }
 }
 
 module "bridge-mig" {

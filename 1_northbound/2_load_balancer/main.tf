@@ -87,6 +87,7 @@ module "ilb-l7" {
     default = {
       port_name = "https"
       backends = local.backend_config
+      port_name = "https"
     }
   }
   health_check_configs = {
