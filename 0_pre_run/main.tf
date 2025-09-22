@@ -20,7 +20,8 @@ locals {
     "cloudkms.googleapis.com",
     "compute.googleapis.com",
     "networksecurity.googleapis.com",
-    "networkservices.googleapis.com"
+    "networkservices.googleapis.com",
+    "iam.googleapis.com"
   ]
   api_deploy_env    = keys(var.apigee_environments)[0]
   fwd_proxy_enabled = length(var.forward_proxy_url) > 0
@@ -41,6 +42,12 @@ resource "google_project_service" "project" {
   project            = data.google_project.project.id
   service            = each.key
   disable_on_destroy = false
+}
+
+resource "google_project_service_identity" "apigee_sa" {
+  provider = google-beta
+  project  = data.google_project.project.project_id
+  service  = "apigee.googleapis.com"
 }
 
 module "apigee-x-core" {
