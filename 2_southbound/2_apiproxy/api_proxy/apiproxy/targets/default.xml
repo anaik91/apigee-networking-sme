@@ -10,6 +10,6 @@
   </PostFlow>
   <HTTPTargetConnection>
     <Properties/>
-    <URL>http://10.100.0.10</URL>
+    <URL>http://10.100.0.3</URL>
   </HTTPTargetConnection>
 </TargetEndpoint>

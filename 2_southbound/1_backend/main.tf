@@ -49,5 +49,10 @@ module "nginx_vm" {
   tags = [
     "http-server", "ssh"
   ]
+  shielded_config = {
+    enable_secure_boot          = true
+    enable_vtpm                 = true
+    enable_integrity_monitoring = true
+  }  
   depends_on = [module.nat]
 }

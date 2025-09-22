@@ -15,53 +15,46 @@
  */
 
 locals {
-  services = [
-    "apigee.googleapis.com",
-    "cloudkms.googleapis.com",
-    "compute.googleapis.com",
-    "networksecurity.googleapis.com",
-    "networkservices.googleapis.com",
-    "iam.googleapis.com"
-  ]
   api_deploy_env    = keys(var.apigee_environments)[0]
   fwd_proxy_enabled = length(var.forward_proxy_url) > 0
+  
   environments = {
     for k, v in var.apigee_environments : k => merge(
       v,
       local.fwd_proxy_enabled ? { forward_proxy_uri = var.forward_proxy_url } : {}
     )
   }
-}
-
-data "google_project" "project" {
-  project_id = var.project_id
-}
-
-resource "google_project_service" "project" {
-  for_each           = toset(local.services)
-  project            = data.google_project.project.id
-  service            = each.key
-  disable_on_destroy = false
-}
-
-resource "google_project_service_identity" "apigee_sa" {
-  provider = google-beta
-  project  = data.google_project.project.project_id
-  service  = "apigee.googleapis.com"
-}
-
-module "apigee-x-core" {
-  source              = "../modules/apigee-x-core"
-  project_id          = data.google_project.project.project_id
-  apigee_environments = local.environments
-  ax_region           = var.ax_region
-  apigee_envgroups = {
-    for name, env_group in var.apigee_envgroups : name => {
-      hostnames = env_group.hostnames
+  envgroups = { for key, value in var.apigee_envgroups : key => value.hostnames }
+  instances = { for key, value in var.apigee_instances : value.region => {
+      name                  = key
+      environments          = value.environments
     }
   }
-  apigee_instances    = var.apigee_instances
-  disable_vpc_peering = true
+}
+
+module "project" {
+  source        = "github.com/terraform-google-modules/cloud-foundation-fabric//modules/project?ref=v42.0.0"
+  name          = var.project_id
+  project_reuse = { use_data_source = true }
+  services = [
+    "apigee.googleapis.com",
+    "compute.googleapis.com",
+    "networksecurity.googleapis.com",
+    "networkservices.googleapis.com"
+  ]
+}
+
+module "apigee" {
+  source     = "github.com/terraform-google-modules/cloud-foundation-fabric//modules/apigee?ref=v42.0.0"
+  project_id = module.project.id
+  organization = {
+    runtime_type        = "CLOUD"
+    analytics_region    = var.ax_region
+    disable_vpc_peering = true
+  }
+  envgroups    = local.envgroups
+  environments = local.environments
+  instances    = local.instances
 }
 
 data "archive_file" "api_proxy" {
@@ -73,7 +66,7 @@ data "archive_file" "api_proxy" {
 
 resource "google_apigee_api" "api_proxy" {
   name          = var.mock_api_proxy_name
-  org_id        = module.apigee-x-core.organization.name
+  org_id        = module.apigee.organization.name
   config_bundle = data.archive_file.api_proxy.output_path
 }
 
@@ -82,7 +75,7 @@ data "google_client_config" "default" {
 
 resource "local_file" "deploy_apiproxy_file" {
   content = templatefile("${path.module}/deploy-apiproxy.sh.tpl", {
-    organization = module.apigee-x-core.organization.name
+    organization = module.apigee.organization.name
     environment  = local.api_deploy_env
     api_name     = var.mock_api_proxy_name
   })
@@ -100,8 +93,4 @@ resource "null_resource" "deploy_api" {
   }
 
   depends_on = [google_apigee_api.api_proxy, local_file.deploy_apiproxy_file]
-}
-
-output "apigee_environments" {
-  value = local.environments
 }
