@@ -39,6 +39,7 @@ module "project" {
   services = [
     "apigee.googleapis.com",
     "compute.googleapis.com",
+    "iam.googleapis.com",
     "networksecurity.googleapis.com",
     "networkservices.googleapis.com"
   ]
